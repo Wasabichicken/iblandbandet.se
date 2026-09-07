@@ -1,0 +1,20 @@
+RewriteEngine On
+RewriteRule ^calendar\.ics$ calendar.cgi [L]
+
+# Python source, compiled bytecode, Mako templates, schema, and docs are
+# only ever needed by the app itself (imports/template loading happen at
+# the filesystem level, unaffected by this) or by us directly on the
+# server - never meant to be fetched over HTTP. Without this, any of
+# these in DocumentRoot is served as plain readable text/bytes, since
+# only .cgi has an execute handler and only scores/ has its own
+# directory-level deny. .pyc appears to already be blocked by some
+# accum.se-side baseline policy independent of this file (confirmed
+# empirically, not assumed), but included here anyway as defense in
+# depth rather than relying on an unverified, undocumented host policy.
+<FilesMatch "\.(py|pyc|mako|sql|md)$">
+    Require all denied
+</FilesMatch>
+
+<Files ".gitignore">
+    Require all denied
+</Files>

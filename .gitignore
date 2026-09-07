@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*~
+/.claude/
+/scores/
+/.mako_modules/
+/static/uploads/
+/static/video/
