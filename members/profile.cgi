@@ -45,7 +45,7 @@ def render_page(member, csrf_token, profile_message=None, profile_kind=None,
     }
     render(
         'profile.mako',
-        title='Min profil — iBlandbandet',
+        title='Min profil — (i)Blandbandet',
         member=member,
         csrf_token=csrf_token,
         profile_message=profile_message,

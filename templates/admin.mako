@@ -108,7 +108,7 @@
 
         <hr class="my-4">
         <h2>Rubriker på förstasidan</h2>
-        <p>En slumpmässig rubrik visas under "iBlandbandet" varje gång startsidan laddas.</p>
+        <p>En slumpmässig rubrik visas under "(i)Blandbandet" varje gång startsidan laddas.</p>
         <div class="table-responsive">
             <table class="table table-striped align-middle">
                 <thead>

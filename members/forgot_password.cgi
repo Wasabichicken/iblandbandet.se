@@ -19,7 +19,7 @@ GENERIC_MESSAGE = ('Om det finns ett konto med den e-postadressen har ett e-post
 
 EMAIL_BODY = """Hej,
 
-Vi har fått en begäran om att byta lösenord för ditt konto på iBlandbandet.
+Vi har fått en begäran om att byta lösenord för ditt konto på (i)Blandbandet.
 Om det var du som bad om detta, klicka på länken nedan för att välja ett
 nytt lösenord. Länken slutar gälla om en timme.
 
@@ -29,7 +29,7 @@ Bad du inte om detta kan du bortse från det här meddelandet - ditt
 lösenord ändras inte förrän någon klickar på länken ovan och väljer ett
 nytt.
 
-/iBlandbandet
+/(i)Blandbandet
 """
 
 
@@ -37,7 +37,7 @@ def render_page(message=None, message_kind=None):
     member, _ = current_member()
     render(
         'forgot_password.mako',
-        title='Glömt lösenord — iBlandbandet',
+        title='Glömt lösenord — (i)Blandbandet',
         member=member,
         message=message,
         message_kind=message_kind,
@@ -63,7 +63,7 @@ def main():
         token = create_reset_token(member.id)
         link = absolute_url('/members/reset_password.cgi?token={}'.format(token))
         try:
-            send_email(member.email, 'Byt lösenord — iBlandbandet', EMAIL_BODY.format(link=link))
+            send_email(member.email, 'Byt lösenord — (i)Blandbandet', EMAIL_BODY.format(link=link))
         except (smtplib.SMTPException, OSError):
             # Swallowed deliberately, not logged anywhere - accum.se gives no
             # accessible error log, and showing a different message here

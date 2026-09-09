@@ -17,12 +17,12 @@ INVALID_TOKEN_MESSAGE = 'Länken är ogiltig eller har gått ut. Begär en ny l�
 
 
 def render_invalid(member):
-    render('reset_password.mako', title='Byt lösenord — iBlandbandet', member=member,
+    render('reset_password.mako', title='Byt lösenord — (i)Blandbandet', member=member,
            token=None, message=INVALID_TOKEN_MESSAGE, message_kind='error')
 
 
 def render_form(member, token, message=None, message_kind=None):
-    render('reset_password.mako', title='Byt lösenord — iBlandbandet', member=member,
+    render('reset_password.mako', title='Byt lösenord — (i)Blandbandet', member=member,
            token=token, message=message, message_kind=message_kind)
 
 

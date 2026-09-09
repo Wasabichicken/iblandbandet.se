@@ -35,7 +35,7 @@ def build_calendar(events, host):
         'PRODID:-//iBlandbandet//Kalender//SV',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
-        'X-WR-CALNAME:iBlandbandet',
+        'X-WR-CALNAME:(i)Blandbandet',
     ]
 
     for event_id, title, starts_at, ends_at, location, latitude, longitude, description in events:

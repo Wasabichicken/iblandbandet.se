@@ -40,7 +40,7 @@ def render_page(message=None, message_kind=None, values=None):
     member, _ = current_member()
     render(
         'register.mako',
-        title='Registrera medlem — iBlandbandet',
+        title='Registrera medlem — (i)Blandbandet',
         member=member,
         message=message,
         message_kind=message_kind,

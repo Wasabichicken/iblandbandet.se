@@ -60,7 +60,7 @@ def render_page(member, csrf_token, message=None, message_kind=None,
                  edit_subtitle=None, edit_subtitle_value=None, confirm_delete_subtitle=None):
     render(
         'admin.mako',
-        title='Adminpanel — iBlandbandet',
+        title='Adminpanel — (i)Blandbandet',
         member=member,
         csrf_token=csrf_token,
         members=list_all_members(),

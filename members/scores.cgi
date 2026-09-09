@@ -88,7 +88,7 @@ def redirect_to_home():
 
 def error_page(member, status, message):
     print('Status: {}'.format(status))
-    render('error.mako', title='{} — iBlandbandet'.format(message), member=member, message=message)
+    render('error.mako', title='{} — (i)Blandbandet'.format(message), member=member, message=message)
 
 
 def get_requested_path():
@@ -170,7 +170,7 @@ def main():
     if os.path.isdir(full_path):
         render(
             'scores.mako',
-            title='Noter — iBlandbandet',
+            title='Noter — (i)Blandbandet',
             member=member,
             relative_path=relative_path,
             breadcrumb=build_breadcrumb(relative_path),

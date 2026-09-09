@@ -6,7 +6,7 @@
         <div id="hero-video-tint" aria-hidden="true"></div>
         <div id="hero-content">
             <div class="hero-mark-block">
-                <h1 class="hero-wordmark">iBlandbandet</h1>
+                <h1 class="hero-wordmark">(i)Blandbandet</h1>
                 <p class="hero-citymark">Umeå</p>
             </div>
             <p class="subtitle">${subtitle}</p>
@@ -33,7 +33,7 @@
               bekymra sig om.
             </p>
             <p>
-              Resultatet blev <b>iBlandbandet</b>, ett slags korplag
+              Resultatet blev <b>(i)Blandbandet</b>, ett slags korplag
               för medelålderströtta musiker — de av oss som är för
               gamla för Snösvänget, för dåliga för Renhornen, men som
               fortfarande söker ett roligt musikaliskt sammanhang. Vi
@@ -76,7 +76,7 @@
 
         <img src="${base_path}/static/img/guitar.webp" alt="Elgitarrist" class="section-photo section-photo--left">
         <p>
-          <span class="lede">iBlandbandets ambition</span> är att vara
+          <span class="lede">(i)Blandbandets ambition</span> är att vara
           en trygg, inkluderande plats där vi ger varandra tillfälle
           att utöva musik i grupp, utan krav på prestation eller
           regelbundet deltagande.
@@ -108,7 +108,7 @@
     </section>
 
     <footer>
-        <p>&copy; 2026 iBlandbandet</p>
+        <p>&copy; 2026 (i)Blandbandet</p>
     </footer>
 
 % if member is not None:

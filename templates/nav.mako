@@ -50,6 +50,6 @@
     <div id="overlay"></div>
 
     <header id="header">
-        <a id="header-title" href="${base_path}/">iBlandbandet</a>
+        <a id="header-title" href="${base_path}/">(i)Blandbandet</a>
         <button id="hamburger" aria-label="Öppna meny"><i class="bi bi-list"></i></button>
     </header>

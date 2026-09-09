@@ -20,7 +20,7 @@ def main():
     query = parse_qs(os.environ.get('QUERY_STRING', ''))
     render(
         'index.mako',
-        title='iBlandbandet',
+        title='(i)Blandbandet',
         member=member,
         csrf_token=csrf_token or '',
         feed_url=absolute_url('/calendar.ics'),

@@ -28,7 +28,7 @@ def redirect_to_profile():
 
 
 def error_page(member, message):
-    render('error.mako', title='Fel — iBlandbandet', member=member, message=message)
+    render('error.mako', title='Fel — (i)Blandbandet', member=member, message=message)
 
 
 def main():
