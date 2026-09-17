@@ -251,6 +251,9 @@ body {
 }
 
 #header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-family: "Baloo 2", sans-serif;
     color: var(--teal);
     text-decoration: none;
@@ -262,6 +265,11 @@ body {
        over the hero. */
     pointer-events: none;
     transition: opacity 0.4s ease, color 0.2s ease;
+}
+
+#header-logo {
+    height: 1.7em;
+    width: auto;
 }
 
 #header-title:hover {
@@ -334,7 +342,7 @@ body {
     position: relative;
     display: inline-block;
     font-size: clamp(2.8rem, 10vw, 6rem);
-    margin-bottom: 0.6em;
+    margin-bottom: 0.35em;
 }
 
 .hero-wordmark {
