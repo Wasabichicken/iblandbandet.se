@@ -1,7 +1,6 @@
 __pycache__/
 *.pyc
 *~
-/.claude/
 /scores/
 /drive/
 /.mako_modules/

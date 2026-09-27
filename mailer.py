@@ -21,10 +21,10 @@ def _find_sendmail():
 def _send_via_local_sendmail(message):
     # Hands off to the host's own local MTA - no credentials needed, since
     # local mail submission is trusted by virtue of running as a real
-    # local user (same "ident" trust pattern already relied on for
-    # Postgres - see CLAUDE.md), not by proving a password. Confirmed
-    # empirically on accum.se: this actually delivers (a raw SMTP
-    # connection to localhost:25 does not - nothing listens there).
+    # local user (same "ident" trust pattern accum.se's Postgres also
+    # relies on), not by proving a password. Confirmed empirically on
+    # accum.se: this actually delivers (a raw SMTP connection to
+    # localhost:25 does not - nothing listens there).
     path = _find_sendmail()
     if path is None:
         raise FileNotFoundError('no sendmail binary found')

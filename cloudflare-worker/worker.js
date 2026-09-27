@@ -1,7 +1,7 @@
 // Reverse proxy for www.iblandbandet.se / iblandbandet.se.
 //
 // The real app lives at https://www.accum.se/~ericj/iblandbandet/ (accum.se
-// shared hosting - see CLAUDE.md). This Worker is the origin Cloudflare
+// shared hosting). This Worker is the origin Cloudflare
 // routes iblandbandet.se traffic to: it fetches the equivalent accum.se
 // path server-side and strips the /~ericj/iblandbandet prefix back out of
 // anything that would otherwise leak it to the browser (redirects, HTML
@@ -16,7 +16,7 @@
 // chunk boundaries).
 //
 // Rewriting covers two shapes the origin's HTML can contain, since
-// base_path.py's url()/absolute_url() both get used (see CLAUDE.md):
+// base_path.py's url()/absolute_url() both get used:
 //   - root-relative: "/~ericj/iblandbandet/..."          (most links)
 //   - absolute:      "https://www.accum.se/~ericj/iblandbandet/..." or
 //                     "webcal://www.accum.se/~ericj/iblandbandet/..."
