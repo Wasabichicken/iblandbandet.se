@@ -105,6 +105,12 @@ on purpose, not out of duplication.</p>
         <ul><li><a href="#calendar-post"><span class="method">POST</span> <code>/api/calendar.cgi</code></a></li></ul>
     </li>
     <li><a href="#scores"><span class="method">GET</span> <code>/api/scores.cgi</code></a></li>
+    <li><a href="#chat-get"><span class="method">GET</span> <code>/api/chat.cgi</code></a>
+        <ul>
+            <li><a href="#chat-post"><span class="method">POST</span> <code>/api/chat.cgi</code></a></li>
+            <li><a href="#chat-socket">WebSocket — live delivery</a></li>
+        </ul>
+    </li>
     <li><a href="#errors">Errors in general</a></li>
     <li><a href="#not-here-yet">What's not here yet</a></li>
 </ul>
@@ -306,6 +312,131 @@ a folder. The response isn't JSON in this case: it's the raw file bytes, with a 
 
 <p><span class="status-err">404 Not Found</span> for a path that doesn't exist. <span class="status-err">401 Unauthorized</span> for a missing/invalid token.</p>
 
+<h2 id="chat-get"><span class="method">GET</span><span class="path">/api/chat.cgi</span></h2>
+
+<p>Requires a valid <code>Authorization: Bearer</code> header for every request — like scores, nothing
+here is public. A single shared chatroom, no channels: every member sees the same message history.</p>
+
+<div class="note">
+<strong>Two ways to send/delete text, both live-broadcast the same way — pick whichever fits.</strong>
+<code>POST</code> below and the WebSocket's <code>message</code>/<code>delete</code> types (see
+"WebSocket — live delivery" below) both end up persisting through this same endpoint, so it makes no
+difference to anyone else which one a client used. In practice: prefer the WebSocket while a client
+already has one open (no need to pay for a separate HTTPS request when there's already a live
+connection sitting there), and fall back to a plain short-lived <code>POST</code> when it doesn't -
+including for images, which can only ever go over <code>POST</code> — there's no way to send one
+over the socket.
+</div>
+
+<p><strong>List messages</strong> — no query params needed for the most recent history:</p>
+<pre><code>[
+  {
+    "id": 123,
+    "member_id": 5,
+    "body": "hej 👋",
+    "image_id": null,
+    "created_at": "2026-10-01T18:03:00Z",
+    "profile_picture": "/static/uploads/avatars/5_initials.svg"
+  }
+]</code></pre>
+
+<p>Newest message first. Page backward through older history with <code>?before=&lt;id&gt;</code>
+(the oldest <code>id</code> you've already seen); <code>?limit=</code> caps how many come back
+(default 50, max 100). <code>member_id</code> and <code>profile_picture</code> can both be
+<code>null</code> — a message from a member who has since deleted their account still shows up in
+history, just with no sender to attribute it to.</p>
+
+<div class="note">
+There's no separate endpoint to look up a member's avatar. <code>profile_picture</code> rides along
+on every message directly, the same way it does everywhere else members' avatars are shown on the
+site — a deliberate choice to avoid a general "look up any member by id" endpoint that would tempt
+exposing more than an avatar (email, description) for someone other than yourself.
+</div>
+
+<p><strong>Fetch an image</strong> — <code>?image=&lt;image_id&gt;</code>, using the <code>image_id</code>
+from a message that has one. Not JSON: the raw image bytes, with a real <code>Content-Type</code>
+sniffed from the file itself. <span class="status-err">404 Not Found</span> if the image doesn't
+exist (or was deleted along with its message).</p>
+
+<h3 id="chat-post"><span class="method">POST</span><span class="path">/api/chat.cgi</span></h3>
+
+<p><strong>Send a text message</strong> — request body:</p>
+<pre><code>{"action": "send", "body": "hej 👋"}</code></pre>
+<p><span class="status-ok">200 OK</span> with the created message (same shape as the list above,
+<code>image_id</code> always <code>null</code>). <span class="status-err">400 Bad Request</span> if
+<code>body</code> is blank.</p>
+
+<p><strong>Send an image</strong> — same endpoint, but as <code>multipart/form-data</code> instead
+of JSON: an <code>image</code> file field, plus an optional <code>body</code> text field for a
+caption. Sending an image <em>is</em> sending a message — there's no separate upload-then-reference
+step, so there's no window where an uploaded file exists without a message pointing at it.
+<span class="status-ok">200 OK</span> with the created message, <code>image_id</code> set to a value
+usable with <code>?image=</code> above. <span class="status-err">400 Bad Request</span> if no file
+was attached or its bytes aren't a recognizable image format (JPEG/PNG/GIF/WEBP).
+<span class="status-err">413 Payload Too Large</span> above 10&nbsp;MB.</p>
+
+<p><strong>Delete a message</strong> — request body:</p>
+<pre><code>{"action": "delete", "message_id": 123}</code></pre>
+<p><span class="status-ok">200 OK</span> with <code>{"ok": true}</code>.
+<span class="status-err">403 Forbidden</span> if it's not your own message and you're not an admin —
+anyone can delete their own message, but only admins can delete someone else's.
+<span class="status-err">404 Not Found</span> if the message doesn't exist.
+<span class="status-err">400 Bad Request</span> if <code>message_id</code> isn't a number.</p>
+
+<h3 id="chat-socket">WebSocket — live delivery</h3>
+
+<pre><code>wss://chat.iblandbandet.workers.dev/socket</code></pre>
+
+<p>New messages and deletions are pushed live over this socket — no polling needed. This isn't part
+of <code>api/chat.cgi</code> itself; it's a separate Cloudflare Worker that sits in front of it,
+relaying between connected clients and the same REST endpoint documented above.</p>
+
+<p>Authenticate the same way as everywhere else — <code>Authorization: Bearer &lt;token&gt;</code> —
+but as a header on the WebSocket handshake request itself, not a query parameter. A connection
+missing or failing this check is rejected with <span class="status-err">401 Unauthorized</span>
+before the upgrade completes.</p>
+
+<div class="note">
+Browser JavaScript's <code>WebSocket</code> API can't attach custom headers to the handshake, so this
+requires a native client (or anything else that controls its own handshake) — not a plain browser
+tab. Every real client here is expected to be the mobile app itself.
+</div>
+
+<p><strong>Send a text message</strong> over the socket:</p>
+<pre><code>{"type": "message", "body": "hej 👋"}</code></pre>
+
+<p><strong>Delete a message</strong> over the socket:</p>
+<pre><code>{"type": "delete", "id": 123}</code></pre>
+
+<p>The server confirms by broadcasting to every connected client, sender included — same shape as a
+row from <code>GET</code> above:</p>
+<pre><code>{
+  "type": "message",
+  "id": 123,
+  "member_id": 5,
+  "body": "hej 👋",
+  "image_id": null,
+  "created_at": "2026-10-01T18:03:00Z",
+  "profile_picture": "/static/uploads/avatars/5_initials.svg"
+}</code></pre>
+<pre><code>{"type": "delete", "id": 123}</code></pre>
+
+<p>If a send/delete fails (blank body, deleting someone else's message, etc.), only the requester
+gets an error — nothing is broadcast:</p>
+<pre><code>{"type": "error", "message": "Du kan bara ta bort dina egna meddelanden."}</code></pre>
+
+<div class="note">
+<strong>Images are still sent over the REST endpoint above, never the socket</strong> — the
+<code>multipart/form-data</code> upload described under <code>POST</code>. The socket only carries
+plain <code>message</code>/<code>delete</code> JSON. An uploaded image still broadcasts live to
+everyone connected, exactly like a text message does; it just gets there via a different path
+server-side, not something a client needs to think about.
+</div>
+
+<p>History is REST-only — fetch it with <code>GET</code> above (paginated via
+<code>?before=</code>) when the app opens or reconnects after being offline. The socket only ever
+carries <em>new</em> activity while connected, nothing retroactive.</p>
+
 <h2 id="errors">Errors in general</h2>
 <ul>
     <li><code>401 Unauthorized</code> — not logged in / bad credentials / bad token.</li>
@@ -315,8 +446,9 @@ a folder. The response isn't JSON in this case: it's the raw file bytes, with a 
 
 <h2 id="not-here-yet">What's not here yet</h2>
 <p>Just the drive. Everything else on this page — login, identity (including editing your own
-profile and changing your password), the calendar, and the score archive — is implemented and live.
-A drive endpoint would be added the same way, reusing the existing bearer-token check for auth.</p>
+profile and changing your password), the calendar, the score archive, and chat (including live
+delivery over the socket) — is implemented and live. A drive endpoint would be added the same way,
+reusing the existing bearer-token check for auth.</p>
 
 </body>
 </html>

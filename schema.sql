@@ -68,6 +68,24 @@ CREATE TABLE iblandbandet_drive_items (
     )
 );
 
+-- API-only (see CHAT.md) - never rendered on the website. member_id uses
+-- ON DELETE SET NULL, same precedent as events.created_by and
+-- drive_items.owner_id: a member's messages survive their account being
+-- deleted rather than vanishing or blocking the deletion. body and
+-- image_uuid are both nullable since either can carry a message on its
+-- own (a caption-less image, or a plain text message) - the CHECK just
+-- rules out a message that's neither, mirroring drive_items' own
+-- directory/file CHECK.
+CREATE TABLE iblandbandet_chat_messages (
+    id SERIAL PRIMARY KEY,
+    member_id INTEGER REFERENCES iblandbandet_members(id) ON DELETE SET NULL,
+    body TEXT,
+    image_uuid UUID,
+    image_size_bytes INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (body IS NOT NULL OR image_uuid IS NOT NULL)
+);
+
 -- Deliberately the same shape as iblandbandet_sessions (opaque token,
 -- only its hash stored) but a separate table, not a shared one - the two
 -- represent genuinely different clients with different lifetimes. Unlike

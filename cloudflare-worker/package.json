@@ -1,0 +1,10 @@
+{
+  "name": "iblandbandet-cloudflare-worker",
+  "private": true,
+  "scripts": {
+    "dev:chat": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

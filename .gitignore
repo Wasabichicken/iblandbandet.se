@@ -3,6 +3,11 @@ __pycache__/
 *~
 /scores/
 /drive/
+/chat/
 /.mako_modules/
 /static/uploads/
 /static/video/
+/.htsecrets
+node_modules/
+/cloudflare-worker/.dev.vars
+/cloudflare-worker/.wrangler/

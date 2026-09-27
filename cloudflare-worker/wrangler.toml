@@ -1,0 +1,22 @@
+# Local-only dev config for running chat.js's Durable Object under
+# `wrangler dev` (workerd, the real Workers runtime, running entirely on
+# this machine - see the "wrangler dev" discussion in the session this was
+# added from). Never deployed from here - the real `chat` Worker on
+# Cloudflare is managed via the API directly (see DEPLOYMENT.md).
+name = "chat-local"
+main = "chat.js"
+compatibility_date = "2024-09-23"
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]
+
+[vars]
+# Points at the local Apache vhost (see CLAUDE.md's "Local Apache vhost").
+# CHAT_BROADCAST_SECRET is deliberately not here - it's a secret, kept in
+# the gitignored .dev.vars instead, wrangler merges both automatically.
+ORIGIN_URL = "http://localhost:8081"
