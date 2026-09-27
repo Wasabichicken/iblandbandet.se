@@ -67,3 +67,16 @@ CREATE TABLE iblandbandet_drive_items (
         (NOT is_directory AND storage_uuid IS NOT NULL AND size_bytes IS NOT NULL)
     )
 );
+
+-- Deliberately the same shape as iblandbandet_sessions (opaque token,
+-- only its hash stored) but a separate table, not a shared one - the two
+-- represent genuinely different clients with different lifetimes. Unlike
+-- sessions, there's no expires_at: a native app shouldn't be forced to
+-- re-authenticate on a schedule the way a browser session is, so a token
+-- stays valid until the member explicitly logs out (DELETE via
+-- dal/api_tokens.py's delete_api_token), not until a timer runs out.
+CREATE TABLE iblandbandet_api_tokens (
+    token_hash TEXT PRIMARY KEY,
+    member_id INTEGER NOT NULL REFERENCES iblandbandet_members(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

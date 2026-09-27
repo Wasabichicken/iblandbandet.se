@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>(i)Blandbandet API</title>
+<style>
+    :root {
+        --ink: #22242a;
+        --muted: #5b5f6b;
+        --border: #e2e4ea;
+        --code-bg: #f4f5f8;
+        --accent: #1f7a6c;
+        --danger: #a13a3a;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: var(--ink);
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 6rem;
+        line-height: 1.6;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 {
+        margin-top: 2.5rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .subtitle { color: var(--muted); margin-top: 0; }
+    .method {
+        display: inline-block;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-weight: 600;
+        font-size: 0.95rem;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.15rem 0.6rem;
+        margin-right: 0.4rem;
+    }
+    .path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        overflow-x: auto;
+        font-size: 0.88rem;
+    }
+    code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: var(--code-bg);
+        border-radius: 4px;
+        padding: 0.1rem 0.35rem;
+        font-size: 0.9em;
+    }
+    pre code { background: none; padding: 0; border-radius: 0; }
+    .status-ok { color: var(--accent); font-weight: 600; }
+    .status-err { color: var(--danger); font-weight: 600; }
+    ul { padding-left: 1.3rem; }
+    .note {
+        border-left: 3px solid var(--border);
+        padding: 0.2rem 1rem;
+        color: var(--muted);
+        margin: 1rem 0;
+    }
+    html { scroll-behavior: smooth; }
+    .toc {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        margin: 1.5rem 0;
+    }
+    .toc p { margin: 0 0 0.5rem; font-weight: 600; }
+    .toc ul { margin: 0; padding-left: 1.1rem; }
+    .toc ul ul { margin-top: 0.2rem; padding-left: 1.2rem; }
+    .toc li { margin: 0.15rem 0; }
+    .toc a { color: var(--ink); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .toc code { font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>(i)Blandbandet API</h1>
+<p class="subtitle">A small JSON API for building external clients (e.g. a mobile app) against member accounts.</p>
+
+<p>This is separate from the website itself, which stays a traditional server-rendered app using
+cookie-based sessions rather than this API's bearer tokens — the two use different auth mechanisms
+on purpose, not out of duplication.</p>
+
+<nav class="toc">
+<p>Contents</p>
+<ul>
+    <li><a href="#base-url">Base URL</a></li>
+    <li><a href="#authentication">Authentication</a></li>
+    <li><a href="#login"><span class="method">POST</span> <code>/api/login.cgi</code></a></li>
+    <li><a href="#me-get"><span class="method">GET</span> <code>/api/me.cgi</code></a>
+        <ul><li><a href="#me-post"><span class="method">POST</span> <code>/api/me.cgi</code></a></li></ul>
+    </li>
+    <li><a href="#logout"><span class="method">POST</span> <code>/api/logout.cgi</code></a></li>
+    <li><a href="#calendar-get"><span class="method">GET</span> <code>/api/calendar.cgi</code></a>
+        <ul><li><a href="#calendar-post"><span class="method">POST</span> <code>/api/calendar.cgi</code></a></li></ul>
+    </li>
+    <li><a href="#scores"><span class="method">GET</span> <code>/api/scores.cgi</code></a></li>
+    <li><a href="#errors">Errors in general</a></li>
+    <li><a href="#not-here-yet">What's not here yet</a></li>
+</ul>
+</nav>
+
+<h2 id="base-url">Base URL</h2>
+<ul>
+    <li>Production: <code>https://www.iblandbandet.se/api/</code></li>
+</ul>
+
+<h2 id="authentication">Authentication</h2>
+<p>Call <span class="method">POST</span><code class="path">/api/login.cgi</code> to get a token, then send it on every subsequent request:</p>
+<pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+<p>There's no separate CSRF token to manage — a bearer token has to be deliberately attached by
+client code, so it isn't vulnerable to the cross-site request forgery that cookie-based auth needs
+CSRF protection against in the first place.</p>
+
+<div class="note">
+<strong>Tokens don't expire on a schedule.</strong> Unlike the website's session cookies (30 days),
+an API token stays valid indefinitely until the client calls <code class="path">/api/logout.cgi</code>
+to revoke it, or the member changes their password (see <code class="path">/api/me.cgi</code> below,
+which revokes every <em>other</em> outstanding token on a successful password change). There's
+currently no way for a member to see a list of their own outstanding tokens.
+</div>
+
+<p>All requests and responses are JSON. Send <code>Content-Type: application/json</code> on any request with a body.</p>
+
+<h2 id="login"><span class="method">POST</span><span class="path">/api/login.cgi</span></h2>
+
+<p><strong>Request body:</strong></p>
+<pre><code>{"email": "anna.lindqvist@example.invalid", "password": "hunter2"}</code></pre>
+
+<p><span class="status-ok">200 OK</span></p>
+<pre><code>{
+  "token": "GlRMWCHZqVHYp2nk8f5DC_AGtnNVfpfhYwXbzbr5azA",
+  "member": {
+    "id": 39,
+    "email": "anna.lindqvist@example.invalid",
+    "instruments": "Klarinett",
+    "description": "Lärare på mellanstadiet, spelar klarinett...",
+    "is_active": true,
+    "is_admin": false,
+    "profile_picture": "/static/uploads/avatars/39_initials.svg"
+  }
+}</code></pre>
+
+<p><span class="status-err">401 Unauthorized</span></p>
+<pre><code>{"error": "Fel e-postadress eller lösenord."}</code></pre>
+<p>Deliberately the same error for a wrong email and a wrong password — never reveals which one was incorrect.</p>
+
+<h2 id="me-get"><span class="method">GET</span><span class="path">/api/me.cgi</span></h2>
+
+<p>Requires a valid <code>Authorization: Bearer</code> header. No request body.</p>
+
+<p><span class="status-ok">200 OK</span> — the member fields directly (same shape as <code>member</code> above, not wrapped):</p>
+<pre><code>{
+  "id": 39,
+  "email": "anna.lindqvist@example.invalid",
+  "instruments": "Klarinett",
+  "description": "Lärare på mellanstadiet, spelar klarinett...",
+  "is_active": true,
+  "is_admin": false,
+  "profile_picture": "/static/uploads/avatars/39_initials.svg"
+}</code></pre>
+
+<p><code>instruments</code>, <code>description</code>, and <code>profile_picture</code> can be <code>null</code> —
+a member isn't required to fill any of those in. A <code>null</code> <code>profile_picture</code> means
+"show a generic default image," the same as the website does.</p>
+
+<p><span class="status-err">401 Unauthorized</span> — missing, malformed, or revoked token:</p>
+<pre><code>{"error": "Ogiltig eller saknad token."}</code></pre>
+
+<h3 id="me-post"><span class="method">POST</span><span class="path">/api/me.cgi</span></h3>
+
+<p>Updates your own account. Two actions, same endpoint:</p>
+
+<p><strong>Update profile</strong> — request body:</p>
+<pre><code>{
+  "action": "update_profile",
+  "email": "anna.lindqvist@example.invalid",
+  "instruments": "Klarinett, Saxofon",
+  "description": "Lärare på mellanstadiet...",
+  "is_active": true
+}</code></pre>
+<p><span class="status-ok">200 OK</span> with the updated member object (same shape as <code>GET</code>
+above). <span class="status-err">409 Conflict</span> if <code>email</code> is already taken by another
+member; <span class="status-err">400 Bad Request</span> if <code>email</code> is blank.</p>
+
+<p><strong>Change password</strong> — request body:</p>
+<pre><code>{
+  "action": "change_password",
+  "current_password": "old-password",
+  "new_password": "new-password"
+}</code></pre>
+<p><span class="status-ok">200 OK</span> with <code>{"ok": true}</code>. <span class="status-err">401 Unauthorized</span>
+if <code>current_password</code> is wrong; <span class="status-err">400 Bad Request</span> if
+<code>new_password</code> is blank.</p>
+
+<div class="note">
+A successful password change revokes every <em>other</em> API token issued to this member — not the
+one used to make the request, so the device making the change stays logged in, but a token that
+leaked anywhere else stops working immediately. It doesn't touch the website's own session cookies.
+</div>
+
+<h2 id="logout"><span class="method">POST</span><span class="path">/api/logout.cgi</span></h2>
+
+<p>Requires a valid <code>Authorization: Bearer</code> header. If the token is already invalid or
+missing, this still succeeds — there's nothing meaningful to report either way.</p>
+
+<p><span class="status-ok">200 OK</span>, always:</p>
+<pre><code>{"ok": true}</code></pre>
+
+<h2 id="calendar-get"><span class="method">GET</span><span class="path">/api/calendar.cgi</span></h2>
+
+<p>Public — no token required. Lists every event, soonest first.</p>
+
+<p><span class="status-ok">200 OK</span></p>
+<pre><code>[
+  {
+    "id": 1,
+    "title": "Måndagsrep",
+    "starts_at": "2026-09-07T16:45:00Z",
+    "ends_at": "2026-09-07T18:30:00Z",
+    "location": "Stallet, Umeå",
+    "latitude": 63.8355172,
+    "longitude": 20.262174,
+    "description": null
+  }
+]</code></pre>
+
+<p><code>starts_at</code>/<code>ends_at</code> are real UTC timestamps (note the trailing <code>Z</code>) —
+unlike the website's own calendar widget, which works with naive Stockholm-local times since it only
+ever runs in a browser in the same timezone the events were entered in, a general-purpose API client
+can't assume that, so these are always genuine UTC. <code>ends_at</code>, <code>location</code>,
+<code>latitude</code>, <code>longitude</code>, and <code>description</code> can all be <code>null</code>.</p>
+
+<h3 id="calendar-post"><span class="method">POST</span><span class="path">/api/calendar.cgi</span></h3>
+
+<p>Requires a valid <code>Authorization: Bearer</code> header. Any logged-in member can create, edit,
+or delete any event — there's no ownership or admin restriction on the calendar, matching how the
+website itself works.</p>
+
+<p><strong>Create</strong> — request body:</p>
+<pre><code>{
+  "action": "create",
+  "title": "Måndagsrep",
+  "starts_at": "2026-10-05T19:00:00Z",
+  "ends_at": "2026-10-05T21:00:00Z",
+  "location": "Stallet, Umeå",
+  "latitude": 63.8355172,
+  "longitude": 20.262174,
+  "description": null
+}</code></pre>
+<p>Only <code>title</code> and <code>starts_at</code> are required. <span class="status-ok">200 OK</span>:</p>
+<pre><code>{"id": 42}</code></pre>
+
+<p><strong>Update</strong> — same body shape as create, plus <code>"event_id": 42</code>, with
+<code>"action": "update"</code>. <strong>Delete</strong> — just <code>{"action": "delete", "event_id": 42}</code>.
+Both respond <span class="status-ok">200 OK</span> with <code>{"ok": true}</code>.</p>
+
+<p><span class="status-err">400 Bad Request</span> if <code>title</code>/<code>starts_at</code> are
+missing on create/update, or <code>event_id</code> isn't a number on update/delete. <span class="status-err">401 Unauthorized</span> if the token is missing or invalid.</p>
+
+<h2 id="scores"><span class="method">GET</span><span class="path">/api/scores.cgi</span></h2>
+
+<p>Requires a valid <code>Authorization: Bearer</code> header for every request — unlike the
+calendar, nothing here is public. Browses the score archive: folders containing folders and files.</p>
+
+<p><strong>List a folder</strong> — pass <code>?path=</code> followed by the folder's own path (see
+below for where that value comes from; omit it entirely for the archive's root). <span class="status-ok">200 OK</span>:</p>
+<pre><code>{
+  "path": "P%C3%A4rmen/9%20to%205",
+  "breadcrumb": [
+    {"name": "Pärmen", "path": "P%C3%A4rmen"},
+    {"name": "9 to 5", "path": "P%C3%A4rmen/9%20to%205"}
+  ],
+  "entries": [
+    {
+      "name": "9 to 5.mscz",
+      "path": "P%C3%A4rmen/9%20to%205/9%20to%205.mscz",
+      "is_dir": false,
+      "ext": ".mscz",
+      "modified": "2026-09-01T06:19:20Z",
+      "size": 1245010
+    }
+  ]
+}</code></pre>
+
+<p>Each entry's <code>path</code> is already URL-encoded and ready to use as-is — pass it straight
+back as the next request's <code>?path=</code>, whether you're descending into a folder or
+downloading a file. Folders have <code>ext</code>/<code>size</code> as <code>null</code>; only
+<code>.pdf</code>, <code>.mp3</code>, <code>.mscz</code>, and <code>.txt</code> files ever appear.</p>
+
+<p><strong>Download a file</strong> — same endpoint, <code>path</code> pointing at a file instead of
+a folder. The response isn't JSON in this case: it's the raw file bytes, with a real
+<code>Content-Type</code> and <code>Content-Disposition</code> (<code>attachment</code> for
+<code>.mscz</code>, since nothing can render it inline; <code>inline</code> otherwise).</p>
+
+<p><span class="status-err">404 Not Found</span> for a path that doesn't exist. <span class="status-err">401 Unauthorized</span> for a missing/invalid token.</p>
+
+<h2 id="errors">Errors in general</h2>
+<ul>
+    <li><code>401 Unauthorized</code> — not logged in / bad credentials / bad token.</li>
+    <li><code>405 Method Not Allowed</code> — wrong HTTP method (<code class="path">login.cgi</code> and <code class="path">logout.cgi</code> are POST-only).</li>
+    <li>All error bodies have the shape <code>{"error": "&lt;message&gt;"}</code>, with the message in Swedish, matching the rest of the site.</li>
+</ul>
+
+<h2 id="not-here-yet">What's not here yet</h2>
+<p>Just the drive. Everything else on this page — login, identity (including editing your own
+profile and changing your password), the calendar, and the score archive — is implemented and live.
+A drive endpoint would be added the same way, reusing the existing bearer-token check for auth.</p>
+
+</body>
+</html>

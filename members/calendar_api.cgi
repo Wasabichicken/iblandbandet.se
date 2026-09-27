@@ -1,22 +1,15 @@
 #!/usr/bin/env python3
 
 import hmac
-import json
 import os
 import sys
 from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from api_common import json_response
 from dal.events import create_event, delete_event, list_all_events, update_event
 from session_auth import current_member
-
-
-def json_response(status, payload):
-    print('Status: {}'.format(status))
-    print('Content-Type: application/json; charset=utf-8')
-    print()
-    print(json.dumps(payload))
 
 
 def format_datetime(dt):

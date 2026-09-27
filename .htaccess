@@ -1,6 +1,11 @@
 RewriteEngine On
 RewriteRule ^calendar\.ics$ calendar.cgi [L]
 
+# Apache strips the Authorization header from the CGI environment by
+# default - without this, api_auth.py's os.environ.get('HTTP_AUTHORIZATION')
+# never sees a bearer token at all, regardless of what the client sent.
+CGIPassAuth On
+
 # Python source, compiled bytecode, Mako templates, schema, and docs are
 # only ever needed by the app itself (imports/template loading happen at
 # the filesystem level, unaffected by this) or by us directly on the
