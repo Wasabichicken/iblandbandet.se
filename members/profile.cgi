@@ -7,14 +7,11 @@ from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from avatars import UPLOAD_DIR, UPLOAD_URL_PREFIX, generate_and_save_initials_avatar
 from base_path import url
 from dal.members import DuplicateEmailError, update_password, update_profile, update_profile_picture, verify_password
 from layout import render
 from session_auth import current_member
-
-UPLOAD_URL_PREFIX = '/static/uploads/avatars/'
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           'static', 'uploads', 'avatars')
 
 
 def redirect_to_home():
@@ -96,13 +93,23 @@ def handle_change_password(member, values):
 
 def handle_remove_picture(member):
     old_url = member.profile_picture
-    update_profile_picture(member.id, None)
+    # Delete the old file *before* generating the replacement - the
+    # regenerated avatar is saved under the exact same <id>_initials.svg
+    # name a previously-generated one would already have, so doing this in
+    # the other order would delete the fresh file we just wrote instead of
+    # the stale one.
     if old_url and old_url.startswith(UPLOAD_URL_PREFIX):
         old_path = os.path.join(UPLOAD_DIR, old_url[len(UPLOAD_URL_PREFIX):])
         try:
             os.remove(old_path)
         except OSError:
             pass
+    # Regenerate this member's DiceBear avatar rather than falling back to
+    # the generic _default.svg - deterministic from their email, so this is
+    # always "their" avatar, not a new random one. Falls back to NULL (the
+    # generic silhouette) only if DiceBear can't be reached right now.
+    picture_url = generate_and_save_initials_avatar(member.id, member.email)
+    update_profile_picture(member.id, picture_url)
     return 'Profilbilden har tagits bort.', 'success'
 
 

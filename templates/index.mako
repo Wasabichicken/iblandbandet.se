@@ -83,7 +83,7 @@
         </p>
         <p>
           Så spelar du brass, träblås, näsflöjt (eller t.o.m. något så
-          exotiskt som trummor, piano eller gitarr), kan (eller vill
+          exotiskt som trummor, piano eller elbas), kan (eller vill
           lära dig) grunderna i notläsning, och känner att det skulle
           vara trevligt att putsa upp färdigheterna en gång i veckan?
           Hör av dig, vetja! Vi hittar en plats för de flesta

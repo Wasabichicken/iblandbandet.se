@@ -87,7 +87,13 @@ def redirect_to_home():
 
 
 def error_page(member, status, message):
+    # print() buffers through sys.stdout's own text layer, while render()
+    # writes bytes straight to sys.stdout.buffer beneath it - without an
+    # explicit flush here, the two can reach the underlying stream out of
+    # order, so this "Status:" line arrives after render()'s output instead
+    # of before it, and the CGI response ends up 200 OK instead of `status`.
     print('Status: {}'.format(status))
+    sys.stdout.flush()
     render('error.mako', title='{} — (i)Blandbandet'.format(message), member=member, message=message)
 
 

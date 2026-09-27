@@ -6,7 +6,8 @@ from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dal.members import DuplicateEmailError, register_member
+from avatars import generate_and_save_initials_avatar
+from dal.members import DuplicateEmailError, register_member, update_profile_picture
 from layout import render
 from session_auth import current_member
 
@@ -67,7 +68,7 @@ def main():
         return
 
     try:
-        register_member(
+        member_id = register_member(
             email=values['email'],
             password=values['password'],
             instruments=values['instruments'] or None,
@@ -80,6 +81,12 @@ def main():
             values=values,
         )
         return
+
+    # If DiceBear can't be reached, the member just keeps the generic
+    # _default.svg fallback - registration itself must not fail because of it.
+    picture_url = generate_and_save_initials_avatar(member_id, values['email'])
+    if picture_url:
+        update_profile_picture(member_id, picture_url)
 
     render_page(
         message='Registreringen har genomförts.',

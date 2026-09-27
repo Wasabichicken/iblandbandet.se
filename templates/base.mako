@@ -11,7 +11,7 @@
     <link href="${base_path}/static/css/style.css" rel="stylesheet">
 </head>
 <body>
-    <script>window.APP_BASE_PATH = "${base_path}";</script>
+    <script id="app-base-path">window.APP_BASE_PATH = "${base_path}";</script>
 <%include file="nav.mako"/>
 ${self.body()}
     <script src="${base_path}/static/js/main.js"></script>

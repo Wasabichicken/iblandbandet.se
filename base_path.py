@@ -20,6 +20,21 @@ def url(path):
 
 
 def absolute_url(path):
-    """Build a full https:// URL for an app-relative path, using the request's Host."""
+    """Build a full https:// URL for an app-relative path, using the request's Host.
+
+    Prefers X-Forwarded-Host over Host: requests proxied through the
+    Cloudflare Worker (see cloudflare-worker/worker.js) hit this app with
+    Host: www.accum.se (the Worker's own fetch target), while
+    X-Forwarded-Host carries the real visitor-facing hostname
+    (www.iblandbandet.se). When X-Forwarded-Host is present, this app's own
+    /~ericj/iblandbandet base path is purely an accum.se implementation
+    detail - the Worker already strips it from every proxied page - so the
+    canonical iblandbandet.se URL is path alone, not url(path). Local dev
+    and direct accum.se access never set X-Forwarded-Host, so they still
+    get url(path) prefixed with the real base path, same as before.
+    """
+    forwarded_host = os.environ.get('HTTP_X_FORWARDED_HOST')
+    if forwarded_host:
+        return 'https://{}{}'.format(forwarded_host, path)
     host = os.environ.get('HTTP_HOST', 'iblandbandet.se')
     return 'https://{}{}'.format(host, url(path))

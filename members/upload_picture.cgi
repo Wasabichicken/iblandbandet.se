@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cgi
-from avatars import fix_upload_permissions
+from avatars import UPLOAD_DIR, UPLOAD_URL_PREFIX, fix_upload_permissions
 from base_path import url
 from dal.members import update_profile_picture
 from layout import render
@@ -16,9 +16,6 @@ from session_auth import current_member
 
 MAX_UPLOAD_BYTES = 3 * 1024 * 1024
 JPEG_MAGIC = b'\xff\xd8\xff'
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           'static', 'uploads', 'avatars')
-UPLOAD_URL_PREFIX = '/static/uploads/avatars/'
 
 
 def redirect_to_profile():
@@ -27,7 +24,9 @@ def redirect_to_profile():
     print()
 
 
-def error_page(member, message):
+def error_page(member, status, message):
+    print('Status: {}'.format(status))
+    sys.stdout.flush()
     render('error.mako', title='Fel — (i)Blandbandet', member=member, message=message)
 
 
@@ -39,23 +38,33 @@ def main():
 
     content_length = int(os.environ.get('CONTENT_LENGTH', 0) or 0)
     if content_length > MAX_UPLOAD_BYTES:
-        error_page(member, 'Bilden är för stor.')
+        # Apache relays the request body to this script's stdin over a
+        # blocking pipe - responding without reading it can deadlock the
+        # connection (the client sits stuck trying to send bytes nobody is
+        # draining), so the body must be discarded before we respond.
+        remaining = content_length
+        while remaining > 0:
+            chunk = sys.stdin.buffer.read(min(65536, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+        error_page(member, '413 Payload Too Large', 'Bilden är för stor.')
         return
 
     form = cgi.FieldStorage(fp=sys.stdin.buffer, environ=os.environ, keep_blank_values=True)
 
     if not hmac.compare_digest(form.getvalue('csrf_token', ''), csrf_token):
-        error_page(member, 'Sessionen är ogiltig, ladda om sidan och försök igen.')
+        error_page(member, '403 Forbidden', 'Sessionen är ogiltig, ladda om sidan och försök igen.')
         return
 
     field = form['avatar'] if 'avatar' in form else None
     if field is None or not field.filename:
-        error_page(member, 'Ingen bild valdes.')
+        error_page(member, '400 Bad Request', 'Ingen bild valdes.')
         return
 
     data = field.file.read()
     if not data.startswith(JPEG_MAGIC):
-        error_page(member, 'Bilden måste vara en JPEG.')
+        error_page(member, '400 Bad Request', 'Bilden måste vara en JPEG.')
         return
 
     old_url = member.profile_picture

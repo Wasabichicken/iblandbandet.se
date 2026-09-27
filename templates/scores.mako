@@ -42,12 +42,12 @@
 % if entry['is_dir']:
                         <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-folder-fill scores-icon scores-icon-folder"></i> ${entry['display_name']}</a>
 % elif entry['ext'] == '.pdf':
-                        <a href="${base_path}/members/scores.cgi?path=${href}" target="_blank"><i class="bi bi-file-earmark-pdf scores-icon scores-icon-pdf"></i> ${entry['display_name']}</a>
+                        <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-pdf scores-icon scores-icon-pdf"></i> ${entry['display_name']}</a>
 % elif entry['ext'] == '.mp3':
                         <i class="bi bi-file-earmark-music scores-icon scores-icon-audio"></i> ${entry['display_name']}
                         <audio controls src="${base_path}/members/scores.cgi?path=${href}"></audio>
 % elif entry['ext'] == '.txt':
-                        <a href="${base_path}/members/scores.cgi?path=${href}" target="_blank"><i class="bi bi-file-earmark-text scores-icon scores-icon-text"></i> ${entry['display_name']}</a>
+                        <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-text scores-icon scores-icon-text"></i> ${entry['display_name']}</a>
 % elif entry['ext'] == '.mscz':
                         <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-zip scores-icon scores-icon-mscz"></i> ${entry['display_name']}</a>
 % endif

@@ -3,6 +3,7 @@ __pycache__/
 *~
 /.claude/
 /scores/
+/drive/
 /.mako_modules/
 /static/uploads/
 /static/video/

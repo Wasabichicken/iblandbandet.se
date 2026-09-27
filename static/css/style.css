@@ -613,6 +613,99 @@ footer {
     }
 }
 
+/* Member drive */
+
+.drive-icon-image {
+    color: var(--purple-dark);
+}
+
+.drive-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.drive-toolbar form {
+    flex: 1 1 280px;
+}
+
+.drive-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.drive-filter-bar select {
+    width: auto;
+}
+
+.drive-col-owner {
+    width: 3rem;
+    text-align: center;
+}
+
+.avatar-thumbnail {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-block;
+}
+
+.drive-table tr[hidden] {
+    display: none;
+}
+
+.drive-table tr[draggable="true"] {
+    cursor: grab;
+}
+
+.drive-drop-target-active {
+    background: var(--tint) !important;
+    outline: 2px dashed var(--purple);
+    outline-offset: -2px;
+}
+
+.drive-parent-row a {
+    color: rgba(44, 44, 44, 0.55);
+    font-style: italic;
+}
+
+.drive-parent-row a:hover {
+    color: var(--teal);
+}
+
+.drive-actions-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.drive-actions-toggle {
+    border: none;
+    background: none;
+    color: rgba(44, 44, 44, 0.55);
+}
+
+.drive-actions-toggle:hover {
+    color: var(--text);
+    background: var(--tint);
+}
+
+.drive-dropdown-form {
+    margin: 0;
+}
+
+.drive-dropdown-form .dropdown-item {
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+}
+
 /* Profile picture */
 
 .profile-picture-preview {

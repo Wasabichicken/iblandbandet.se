@@ -80,6 +80,7 @@
             <table class="table table-striped align-middle">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>E-post</th>
                         <th>Instrument</th>
                         <th>Aktiv</th>
@@ -90,6 +91,7 @@
                 <tbody>
 % for row in members:
                     <tr>
+                        <td><img class="avatar-thumbnail" src="${base_path + (row.profile_picture or '/static/img/avatars/_default.svg')}" alt=""></td>
                         <td>${row.email}</td>
                         <td>${row.instruments or '–'}</td>
                         <td>${'Ja' if row.is_active else 'Nej'}</td>

@@ -44,3 +44,26 @@ CREATE TABLE iblandbandet_events (
     created_by INTEGER REFERENCES iblandbandet_members(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- parent_id has no ON DELETE clause (defaults to RESTRICT) - the database
+-- itself refuses to delete a directory row that still has children,
+-- matching the app-level "directories must be empty before deletion" rule
+-- with a hard backstop. owner_id uses ON DELETE SET NULL (same pattern as
+-- events.created_by) so a member's files/folders survive their account
+-- being deleted, becoming permanently undeletable via the normal
+-- owner-only-delete path once orphaned - an accepted consequence, not a bug.
+CREATE TABLE iblandbandet_drive_items (
+    id SERIAL PRIMARY KEY,
+    parent_id INTEGER REFERENCES iblandbandet_drive_items(id),
+    owner_id INTEGER REFERENCES iblandbandet_members(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    is_directory BOOLEAN NOT NULL,
+    storage_uuid UUID,
+    size_bytes INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (
+        (is_directory AND storage_uuid IS NULL AND size_bytes IS NULL)
+        OR
+        (NOT is_directory AND storage_uuid IS NOT NULL AND size_bytes IS NOT NULL)
+    )
+);

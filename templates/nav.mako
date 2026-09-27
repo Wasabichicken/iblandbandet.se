@@ -39,6 +39,7 @@
             <ul>
                 <li><a href="${base_path}/members/profile.cgi" class="sidebar-link">Min profil</a></li>
                 <li><a href="${base_path}/members/scores.cgi" class="sidebar-link">Noter</a></li>
+                <li><a href="${base_path}/members/drive.cgi" class="sidebar-link">Filer</a></li>
 % if member.is_admin:
                 <li><a href="${base_path}/members/admin.cgi" class="sidebar-link">Admin</a></li>
 % endif

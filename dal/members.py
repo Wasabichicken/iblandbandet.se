@@ -93,7 +93,7 @@ def list_all_members():
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT id, email, instruments, is_active, is_admin
+            SELECT id, email, instruments, is_active, is_admin, profile_picture
             FROM iblandbandet_members
             ORDER BY email
             """
