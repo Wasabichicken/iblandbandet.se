@@ -25,7 +25,7 @@ def read_form():
     body = sys.stdin.read(length)
     parsed = parse_qs(body)
     values = {key: parsed.get(key, [''])[0] for key in
-              ('action', 'csrf_token', 'email', 'instruments', 'description',
+              ('action', 'csrf_token', 'email', 'instruments', 'description', 'name',
                'current_password', 'new_password', 'confirm_password')}
     values['is_active'] = 'is_active' in parsed
     return values
@@ -39,6 +39,7 @@ def render_page(member, csrf_token, profile_message=None, profile_kind=None,
         'instruments': member.instruments or '',
         'description': member.description or '',
         'is_active': member.is_active,
+        'name': member.name or '',
     }
     render(
         'profile.mako',
@@ -61,15 +62,17 @@ def handle_update_profile(member, values):
     instruments = values['instruments'].strip() or None
     description = values['description'].strip() or None
     is_active = values['is_active']
+    name = values['name'].strip() or None
 
     profile_values = {'email': email, 'instruments': values['instruments'],
-                       'description': values['description'], 'is_active': is_active}
+                       'description': values['description'], 'is_active': is_active,
+                       'name': values['name']}
 
     if not email:
         return 'E-post måste fyllas i.', 'error', profile_values
 
     try:
-        update_profile(member.id, email, instruments, description, is_active)
+        update_profile(member.id, email, instruments, description, is_active, name)
     except DuplicateEmailError:
         return 'Det finns redan en medlem med den e-postadressen.', 'error', profile_values
 

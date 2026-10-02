@@ -28,7 +28,7 @@ def verify_password(password, salt_hex, hash_hex, iterations):
     return hmac.compare_digest(derived, expected)
 
 
-def register_member(email, password, instruments, is_active=True):
+def register_member(email, password, instruments, is_active=True, name=None):
     salt_hex, hash_hex = hash_password(password)
     connection = get_connection()
     try:
@@ -38,11 +38,11 @@ def register_member(email, password, instruments, is_active=True):
                 """
                 INSERT INTO iblandbandet_members
                     (email, password_hash, password_salt, password_iterations,
-                     instruments, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
+                     instruments, is_active, name)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
-                email, hash_hex, salt_hex, PBKDF2_ITERATIONS, instruments, is_active,
+                email, hash_hex, salt_hex, PBKDF2_ITERATIONS, instruments, is_active, name,
             )
         except pyodbc.IntegrityError:
             raise DuplicateEmailError(email)
@@ -58,7 +58,7 @@ def get_member_by_email(email):
         cursor.execute(
             """
             SELECT id, email, password_hash, password_salt, password_iterations,
-                   instruments, description, is_active, profile_picture, is_admin
+                   instruments, description, is_active, profile_picture, is_admin, name
             FROM iblandbandet_members
             WHERE email = ?
             """,
@@ -76,7 +76,7 @@ def get_member_by_id(member_id):
         cursor.execute(
             """
             SELECT id, email, password_hash, password_salt, password_iterations,
-                   instruments, description, is_active, profile_picture, is_admin
+                   instruments, description, is_active, profile_picture, is_admin, name
             FROM iblandbandet_members
             WHERE id = ?
             """,
@@ -93,7 +93,7 @@ def list_all_members():
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT id, email, instruments, is_active, is_admin, profile_picture
+            SELECT id, email, instruments, is_active, is_admin, profile_picture, name
             FROM iblandbandet_members
             ORDER BY email
             """
@@ -103,7 +103,7 @@ def list_all_members():
         connection.close()
 
 
-def update_profile(member_id, email, instruments, description, is_active):
+def update_profile(member_id, email, instruments, description, is_active, name):
     connection = get_connection()
     try:
         cursor = connection.cursor()
@@ -111,10 +111,10 @@ def update_profile(member_id, email, instruments, description, is_active):
             cursor.execute(
                 """
                 UPDATE iblandbandet_members
-                SET email = ?, instruments = ?, description = ?, is_active = ?
+                SET email = ?, instruments = ?, description = ?, is_active = ?, name = ?
                 WHERE id = ?
                 """,
-                email, instruments, description, is_active, member_id,
+                email, instruments, description, is_active, name, member_id,
             )
         except pyodbc.IntegrityError:
             raise DuplicateEmailError(email)
@@ -134,7 +134,7 @@ def update_profile_picture(member_id, url):
         connection.close()
 
 
-def admin_update_member(member_id, email, instruments, description, is_active, is_admin):
+def admin_update_member(member_id, email, instruments, description, is_active, is_admin, name):
     connection = get_connection()
     try:
         cursor = connection.cursor()
@@ -143,10 +143,10 @@ def admin_update_member(member_id, email, instruments, description, is_active, i
                 """
                 UPDATE iblandbandet_members
                 SET email = ?, instruments = ?, description = ?,
-                    is_active = ?, is_admin = ?
+                    is_active = ?, is_admin = ?, name = ?
                 WHERE id = ?
                 """,
-                email, instruments, description, is_active, is_admin, member_id,
+                email, instruments, description, is_active, is_admin, name, member_id,
             )
         except pyodbc.IntegrityError:
             raise DuplicateEmailError(email)

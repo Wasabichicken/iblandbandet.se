@@ -19,6 +19,7 @@ def member_json(member):
         'is_active': member.is_active,
         'is_admin': member.is_admin,
         'profile_picture': member.profile_picture,
+        'name': member.name,
     }
 
 

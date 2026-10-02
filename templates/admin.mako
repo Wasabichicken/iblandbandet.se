@@ -24,6 +24,10 @@
                 <input class="form-control" type="text" id="instruments" name="instruments" value="${edit_values['instruments']}">
             </div>
             <div class="mb-3">
+                <label class="form-label" for="name">Artistnamn</label>
+                <input class="form-control" type="text" id="name" name="name" value="${edit_values['name']}">
+            </div>
+            <div class="mb-3">
                 <label class="form-label" for="description">Beskrivning</label>
                 <textarea class="form-control" id="description" name="description" rows="4">${edit_values['description']}</textarea>
             </div>
@@ -82,6 +86,7 @@
                     <tr>
                         <th></th>
                         <th>E-post</th>
+                        <th>Artistnamn</th>
                         <th>Instrument</th>
                         <th>Aktiv</th>
                         <th>Admin</th>
@@ -93,6 +98,7 @@
                     <tr>
                         <td><img class="avatar-thumbnail" src="${base_path + (row.profile_picture or '/static/img/avatars/_default.svg')}" alt=""></td>
                         <td>${row.email}</td>
+                        <td>${row.name or '–'}</td>
                         <td>${row.instruments or '–'}</td>
                         <td>${'Ja' if row.is_active else 'Nej'}</td>
                         <td>${'Ja' if row.is_admin else 'Nej'}</td>

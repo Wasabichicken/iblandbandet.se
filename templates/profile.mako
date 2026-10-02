@@ -48,6 +48,10 @@
                 <input class="form-control" type="text" id="instruments" name="instruments" value="${profile_values['instruments']}">
             </div>
             <div class="mb-3">
+                <label class="form-label" for="name">Artistnamn</label>
+                <input class="form-control" type="text" id="name" name="name" value="${profile_values['name']}">
+            </div>
+            <div class="mb-3">
                 <label class="form-label" for="description">Beskrivning</label>
                 <textarea class="form-control" id="description" name="description" rows="4">${profile_values['description']}</textarea>
             </div>

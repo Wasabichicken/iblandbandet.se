@@ -154,7 +154,8 @@ currently no way for a member to see a list of their own outstanding tokens.
     "description": "Lärare på mellanstadiet, spelar klarinett...",
     "is_active": true,
     "is_admin": false,
-    "profile_picture": "/static/uploads/avatars/39_initials.svg"
+    "profile_picture": "/static/uploads/avatars/39_initials.svg",
+    "name": "Klarinett-Anna"
   }
 }</code></pre>
 
@@ -174,12 +175,21 @@ currently no way for a member to see a list of their own outstanding tokens.
   "description": "Lärare på mellanstadiet, spelar klarinett...",
   "is_active": true,
   "is_admin": false,
-  "profile_picture": "/static/uploads/avatars/39_initials.svg"
+  "profile_picture": "/static/uploads/avatars/39_initials.svg",
+  "name": "Klarinett-Anna"
 }</code></pre>
 
-<p><code>instruments</code>, <code>description</code>, and <code>profile_picture</code> can be <code>null</code> —
-a member isn't required to fill any of those in. A <code>null</code> <code>profile_picture</code> means
-"show a generic default image," the same as the website does.</p>
+<p><code>instruments</code>, <code>description</code>, <code>profile_picture</code>, and <code>name</code>
+can be <code>null</code> — a member isn't required to fill any of those in. A <code>null</code>
+<code>profile_picture</code> means "show a generic default image," the same as the website does.</p>
+
+<div class="note">
+<strong><code>name</code> ("Artistnamn" on the website) is an optional, self-chosen nickname, not a
+real name.</strong> The member registry is anonymous by default — nothing requires a member to set
+one, and a member who doesn't is exactly as anonymous to other members as before this field
+existed. Setting one is a deliberate choice to be more identifiable, e.g. so it can be shown
+next to their messages in chat (see <code class="path">/api/chat.cgi</code> below).
+</div>
 
 <p><span class="status-err">401 Unauthorized</span> — missing, malformed, or revoked token:</p>
 <pre><code>{"error": "Ogiltig eller saknad token."}</code></pre>
@@ -194,11 +204,16 @@ a member isn't required to fill any of those in. A <code>null</code> <code>profi
   "email": "anna.lindqvist@example.invalid",
   "instruments": "Klarinett, Saxofon",
   "description": "Lärare på mellanstadiet...",
-  "is_active": true
+  "is_active": true,
+  "name": "Klarinett-Anna"
 }</code></pre>
 <p><span class="status-ok">200 OK</span> with the updated member object (same shape as <code>GET</code>
 above). <span class="status-err">409 Conflict</span> if <code>email</code> is already taken by another
 member; <span class="status-err">400 Bad Request</span> if <code>email</code> is blank.</p>
+
+<p>Like <code>instruments</code>/<code>description</code>, this is a full replace, not a partial
+patch — omit <code>name</code> (or send it blank) and it's cleared to <code>null</code>, same as
+every other optional field here.</p>
 
 <p><strong>Change password</strong> — request body:</p>
 <pre><code>{
@@ -335,22 +350,26 @@ over the socket.
     "member_id": 5,
     "body": "hej 👋",
     "image_id": null,
+    "request_id": null,
     "created_at": "2026-10-01T18:03:00Z",
-    "profile_picture": "/static/uploads/avatars/5_initials.svg"
+    "profile_picture": "/static/uploads/avatars/5_initials.svg",
+    "name": "Klarinett-Anna"
   }
 ]</code></pre>
 
 <p>Newest message first. Page backward through older history with <code>?before=&lt;id&gt;</code>
 (the oldest <code>id</code> you've already seen); <code>?limit=</code> caps how many come back
-(default 50, max 100). <code>member_id</code> and <code>profile_picture</code> can both be
-<code>null</code> — a message from a member who has since deleted their account still shows up in
-history, just with no sender to attribute it to.</p>
+(default 50, max 100). <code>member_id</code>, <code>profile_picture</code>, and <code>name</code>
+can all be <code>null</code> — a message from a member who has since deleted their account still
+shows up in history, just with no sender to attribute it to.</p>
 
 <div class="note">
-There's no separate endpoint to look up a member's avatar. <code>profile_picture</code> rides along
-on every message directly, the same way it does everywhere else members' avatars are shown on the
-site — a deliberate choice to avoid a general "look up any member by id" endpoint that would tempt
-exposing more than an avatar (email, description) for someone other than yourself.
+There's no separate endpoint to look up a member's avatar or name. Both ride along on every message
+directly, the same way <code>profile_picture</code> does everywhere else on the site — a deliberate
+choice to avoid a general "look up any member by id" endpoint that would tempt exposing anything
+else (email, description) for someone other than yourself. <code>name</code> ("Artistnamn" on the
+website) is an optional, self-chosen nickname a member may or may not have set — see
+<code class="path">/api/me.cgi</code> above.
 </div>
 
 <p><strong>Fetch an image</strong> — <code>?image=&lt;image_id&gt;</code>, using the <code>image_id</code>
@@ -361,27 +380,42 @@ exist (or was deleted along with its message).</p>
 <h3 id="chat-post"><span class="method">POST</span><span class="path">/api/chat.cgi</span></h3>
 
 <p><strong>Send a text message</strong> — request body:</p>
-<pre><code>{"action": "send", "body": "hej 👋"}</code></pre>
+<pre><code>{"action": "send", "body": "hej 👋", "request_id": "3f8e9c2a-..."}</code></pre>
 <p><span class="status-ok">200 OK</span> with the created message (same shape as the list above,
 <code>image_id</code> always <code>null</code>). <span class="status-err">400 Bad Request</span> if
-<code>body</code> is blank.</p>
+<code>body</code> is blank, or if <code>request_id</code> is present but not a valid UUID.</p>
 
 <p><strong>Send an image</strong> — same endpoint, but as <code>multipart/form-data</code> instead
-of JSON: an <code>image</code> file field, plus an optional <code>body</code> text field for a
-caption. Sending an image <em>is</em> sending a message — there's no separate upload-then-reference
-step, so there's no window where an uploaded file exists without a message pointing at it.
-<span class="status-ok">200 OK</span> with the created message, <code>image_id</code> set to a value
-usable with <code>?image=</code> above. <span class="status-err">400 Bad Request</span> if no file
-was attached or its bytes aren't a recognizable image format (JPEG/PNG/GIF/WEBP).
-<span class="status-err">413 Payload Too Large</span> above 10&nbsp;MB.</p>
+of JSON: an <code>image</code> file field, plus optional <code>body</code> (a caption) and
+<code>request_id</code> fields. Sending an image <em>is</em> sending a message — there's no separate
+upload-then-reference step, so there's no window where an uploaded file exists without a message
+pointing at it. <span class="status-ok">200 OK</span> with the created message, <code>image_id</code>
+set to a value usable with <code>?image=</code> above. <span class="status-err">400 Bad Request</span>
+if no file was attached, its bytes aren't a recognizable image format (JPEG/PNG/GIF/WEBP), or
+<code>request_id</code> is present but not a valid UUID. <span class="status-err">413 Payload Too
+Large</span> above 10&nbsp;MB.</p>
+
+<div class="note">
+<strong><code>request_id</code> is optional, but worth using.</strong> It's a UUID you generate
+yourself (rejected with <span class="status-err">400 Bad Request</span> if present but not actually
+a UUID — keeps it a pure correlation token, nothing else). It does two things: retry-safety (resend
+the exact same <code>request_id</code> after a dropped connection or timeout, and you get back the
+message that was already saved instead of creating a duplicate), and correlation (every response,
+success or error, echoes it back — handy if you have several requests in flight at once over the
+WebSocket below and need to tell which response belongs to which).
+</div>
 
 <p><strong>Delete a message</strong> — request body:</p>
-<pre><code>{"action": "delete", "message_id": 123}</code></pre>
-<p><span class="status-ok">200 OK</span> with <code>{"ok": true}</code>.
+<pre><code>{"action": "delete", "message_id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
+<p><span class="status-ok">200 OK</span> with <code>{"ok": true, "id": 123, "request_id": "9a1b2c3d-..."}</code>
+(<code>request_id</code> is <code>null</code> if you didn't send one — there's nothing to deduplicate
+on a delete, it's echoed purely for correlation).
 <span class="status-err">403 Forbidden</span> if it's not your own message and you're not an admin —
 anyone can delete their own message, but only admins can delete someone else's.
 <span class="status-err">404 Not Found</span> if the message doesn't exist.
-<span class="status-err">400 Bad Request</span> if <code>message_id</code> isn't a number.</p>
+<span class="status-err">400 Bad Request</span> if <code>message_id</code> isn't a number, or
+<code>request_id</code> is present but not a valid UUID. The <code>id</code>/<code>request_id</code>
+pair is included on every one of these error responses too, not just success.</p>
 
 <h3 id="chat-socket">WebSocket — live delivery</h3>
 
@@ -403,10 +437,14 @@ tab. Every real client here is expected to be the mobile app itself.
 </div>
 
 <p><strong>Send a text message</strong> over the socket:</p>
-<pre><code>{"type": "message", "body": "hej 👋"}</code></pre>
+<pre><code>{"type": "message", "body": "hej 👋", "request_id": "3f8e9c2a-..."}</code></pre>
 
 <p><strong>Delete a message</strong> over the socket:</p>
-<pre><code>{"type": "delete", "id": 123}</code></pre>
+<pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
+
+<p><code>request_id</code> here is the same optional UUID documented under <code>POST</code> above
+— it works identically whichever path a client uses, since both end up persisting through the same
+<code class="path">api/chat.cgi</code>.</p>
 
 <p>The server confirms by broadcasting to every connected client, sender included — same shape as a
 row from <code>GET</code> above:</p>
@@ -416,14 +454,17 @@ row from <code>GET</code> above:</p>
   "member_id": 5,
   "body": "hej 👋",
   "image_id": null,
+  "request_id": "3f8e9c2a-...",
   "created_at": "2026-10-01T18:03:00Z",
-  "profile_picture": "/static/uploads/avatars/5_initials.svg"
+  "profile_picture": "/static/uploads/avatars/5_initials.svg",
+  "name": "Klarinett-Anna"
 }</code></pre>
-<pre><code>{"type": "delete", "id": 123}</code></pre>
+<pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
 
 <p>If a send/delete fails (blank body, deleting someone else's message, etc.), only the requester
-gets an error — nothing is broadcast:</p>
-<pre><code>{"type": "error", "message": "Du kan bara ta bort dina egna meddelanden."}</code></pre>
+gets an error — nothing is broadcast. Its own <code>request_id</code> (or whichever request
+actually failed) comes back too, so it's clear which in-flight request this was about:</p>
+<pre><code>{"type": "error", "message": "Du kan bara ta bort dina egna meddelanden.", "request_id": "9a1b2c3d-..."}</code></pre>
 
 <div class="note">
 <strong>Images are still sent over the REST endpoint above, never the socket</strong> — the

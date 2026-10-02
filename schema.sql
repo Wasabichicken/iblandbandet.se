@@ -8,7 +8,15 @@ CREATE TABLE iblandbandet_members (
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     profile_picture TEXT,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    -- "Artistnamn" in the UI - an optional, self-chosen nickname/stage name,
+    -- not a real-name field. The registry stays anonymous by default (see
+    -- the "Members registry" note on this): nothing here requires a member
+    -- to set one, and a member who doesn't is exactly as anonymous to
+    -- others as before. Setting one is a deliberate choice to be more
+    -- identifiable - e.g. so the chat feature can show it next to a
+    -- message - not an expectation.
+    name TEXT
 );
 
 CREATE TABLE iblandbandet_sessions (
@@ -83,6 +91,14 @@ CREATE TABLE iblandbandet_chat_messages (
     image_uuid UUID,
     image_size_bytes INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Client-generated (a UUID the client picks itself, not server-assigned)
+    -- idempotency key for a send: a client that retries after a dropped
+    -- connection/timeout can resend the identical request_id, and the
+    -- UNIQUE constraint lets the server recognize the retry and hand back
+    -- the original message rather than creating a real duplicate. Nullable
+    -- since it's optional - a client that doesn't care about retry-safety
+    -- doesn't need to supply one.
+    request_id UUID UNIQUE,
     CHECK (body IS NOT NULL OR image_uuid IS NOT NULL)
 );
 

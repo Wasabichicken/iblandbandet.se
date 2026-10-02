@@ -11,7 +11,7 @@ from dal.members import DuplicateEmailError, register_member, update_profile_pic
 from layout import render
 from session_auth import current_member
 
-FIELDS = ('email', 'password', 'instruments')
+FIELDS = ('email', 'password', 'instruments', 'name')
 REQUIRED_FIELD_LABELS = (
     ('email', 'E-post'),
     ('password', 'Lösenord'),
@@ -73,6 +73,7 @@ def main():
             password=values['password'],
             instruments=values['instruments'] or None,
             is_active=values['is_active'],
+            name=values['name'] or None,
         )
     except DuplicateEmailError:
         render_page(

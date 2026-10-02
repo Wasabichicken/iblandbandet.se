@@ -49,7 +49,7 @@ def read_form():
     parsed = parse_qs(body)
     values = {key: parsed.get(key, [''])[0].strip() for key in
               ('action', 'csrf_token', 'member_id', 'email', 'instruments',
-               'description', 'subtitle_id', 'subtitle')}
+               'description', 'name', 'subtitle_id', 'subtitle')}
     values['is_active'] = 'is_active' in parsed
     values['is_admin'] = 'is_admin' in parsed
     return values
@@ -89,6 +89,7 @@ def handle_update_member(values):
             description=values['description'] or None,
             is_active=values['is_active'],
             is_admin=values['is_admin'],
+            name=values['name'] or None,
         )
     except DuplicateEmailError:
         return 'Det finns redan en medlem med den e-postadressen.', 'error'
@@ -156,6 +157,7 @@ def main():
                     'description': values['description'],
                     'is_active': values['is_active'],
                     'is_admin': values['is_admin'],
+                    'name': values['name'],
                 }
                 render_page(member, csrf_token, message=message, message_kind=kind,
                             edit_member=target, edit_values=edit_values)
@@ -220,6 +222,7 @@ def main():
             'description': target.description or '',
             'is_active': target.is_active,
             'is_admin': target.is_admin,
+            'name': target.name or '',
         }
         render_page(member, csrf_token, edit_member=target, edit_values=edit_values)
         return

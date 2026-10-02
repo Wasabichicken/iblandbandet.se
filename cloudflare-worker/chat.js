@@ -110,16 +110,23 @@ export class ChatRoom {
             return;
         }
 
+        // request_id is a client-generated correlation token (see
+        // api/chat.cgi's parse_request_id()) - passed straight through to
+        // accum.se on the send path (where it doubles as an idempotency
+        // key), and echoed back on any error either way so a client with
+        // several requests in flight at once can tell which one failed.
         if (data.type === 'message') {
-            await this.persistAndBroadcast(session, { action: 'send', body: data.body });
+            await this.persistAndBroadcast(
+                session, { action: 'send', body: data.body, request_id: data.request_id }, data.request_id);
         } else if (data.type === 'delete') {
-            await this.persistAndBroadcast(session, { action: 'delete', message_id: data.id });
+            await this.persistAndBroadcast(
+                session, { action: 'delete', message_id: data.id, request_id: data.request_id }, data.request_id);
         } else {
-            this.sendError(session, 'Okänd åtgärd.');
+            this.sendError(session, 'Okänd åtgärd.', data.request_id);
         }
     }
 
-    async persistAndBroadcast(session, requestBody) {
+    async persistAndBroadcast(session, requestBody, requestId) {
         let response;
         try {
             response = await fetch(`${this.env.ORIGIN_URL}/api/chat.cgi`, {
@@ -131,7 +138,7 @@ export class ChatRoom {
                 body: JSON.stringify(requestBody),
             });
         } catch (e) {
-            this.sendError(session, 'Kunde inte nå servern.');
+            this.sendError(session, 'Kunde inte nå servern.', requestId);
             return;
         }
 
@@ -143,7 +150,7 @@ export class ChatRoom {
         }
 
         if (!response.ok) {
-            this.sendError(session, (result && result.error) || 'Något gick fel.');
+            this.sendError(session, (result && result.error) || 'Något gick fel.', requestId);
             return;
         }
 
@@ -152,9 +159,9 @@ export class ChatRoom {
         // via this Worker's /broadcast route, for every path alike.
     }
 
-    sendError(session, message) {
+    sendError(session, message, requestId) {
         try {
-            session.socket.send(JSON.stringify({ type: 'error', message }));
+            session.socket.send(JSON.stringify({ type: 'error', message, request_id: requestId || null }));
         } catch (e) {
             // Session is already gone - nothing to do.
         }

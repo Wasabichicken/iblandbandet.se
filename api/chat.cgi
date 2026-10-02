@@ -14,7 +14,8 @@ import cgi
 from api_auth import current_api_member
 from api_common import json_response, read_json_body
 from avatars import fix_upload_permissions
-from dal.chat import create_message, delete_message, get_message_by_id, list_messages
+from dal.chat import (create_message, delete_message, get_message_by_id,
+                       get_message_by_request_id, list_messages)
 from htsecrets import get_secret
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -66,9 +67,27 @@ def message_json(row):
         # via list_messages() would show a differently-cased image_id than
         # the same message's own upload response did.
         'image_id': str(row.image_uuid).lower() if row.image_uuid else None,
+        'request_id': str(row.request_id).lower() if row.request_id else None,
         'created_at': iso_utc(row.created_at),
         'profile_picture': row.profile_picture,
+        'name': row.name,
     }
+
+
+def parse_request_id(raw):
+    """Client-generated correlation/idempotency token - optional, but if
+    present must actually be a UUID. Returns (request_id, error): request_id
+    is a normalized lowercase string, or None if raw was empty/absent (not
+    providing one is fine). error is set only when raw was given but isn't a
+    valid UUID - rejected outright rather than silently ignored, which keeps
+    this field a pure opaque correlation token rather than a place a client
+    could stuff arbitrary data."""
+    if not raw:
+        return None, None
+    try:
+        return str(uuid.UUID(raw)), None
+    except (ValueError, AttributeError, TypeError):
+        return None, 'Ogiltigt request_id.'
 
 
 def trigger_broadcast(payload):
@@ -140,26 +159,54 @@ def handle_send(member, values):
         json_response('400 Bad Request', {'error': 'body måste fyllas i.'})
         return
 
-    message_id, created_at = create_message(member.id, body=body)
+    request_id, error = parse_request_id(values.get('request_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error})
+        return
+
+    if request_id:
+        existing = get_message_by_request_id(request_id)
+        if existing is not None:
+            # A retried send (same request_id as before) - hand back the
+            # message that was already saved instead of creating a real
+            # duplicate or broadcasting it a second time.
+            json_response('200 OK', message_json(existing))
+            return
+
+    message_id, created_at = create_message(member.id, body=body, request_id=request_id)
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
-               'image_id': None, 'created_at': iso_utc(created_at),
-               'profile_picture': member.profile_picture}
+               'image_id': None, 'request_id': request_id,
+               'created_at': iso_utc(created_at),
+               'profile_picture': member.profile_picture, 'name': member.name}
     trigger_broadcast({'type': 'message', **payload})
     json_response('200 OK', payload)
 
 
 def handle_delete(member, values):
+    # request_id here is purely an echoed-back correlation token - a delete
+    # already targets a known, existing message_id, so there's nothing to
+    # deduplicate against (deleting the same id twice is already harmless:
+    # the second attempt just 404s). Parsed first so every response below,
+    # success or error, can include it.
+    request_id, error = parse_request_id(values.get('request_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error})
+        return
+
     message_id = values.get('message_id')
     if not isinstance(message_id, int):
-        json_response('400 Bad Request', {'error': 'Ogiltigt id.'})
+        json_response('400 Bad Request', {'error': 'Ogiltigt id.', 'request_id': request_id})
         return
 
     message = get_message_by_id(message_id)
     if message is None:
-        json_response('404 Not Found', {'error': 'Hittades inte.'})
+        json_response('404 Not Found',
+                      {'error': 'Hittades inte.', 'id': message_id, 'request_id': request_id})
         return
     if message.member_id != member.id and not member.is_admin:
-        json_response('403 Forbidden', {'error': 'Du kan bara ta bort dina egna meddelanden.'})
+        json_response('403 Forbidden',
+                       {'error': 'Du kan bara ta bort dina egna meddelanden.',
+                        'id': message_id, 'request_id': request_id})
         return
 
     if message.image_uuid:
@@ -168,8 +215,8 @@ def handle_delete(member, values):
         except OSError:
             pass
     delete_message(message_id)
-    trigger_broadcast({'type': 'delete', 'id': message_id})
-    json_response('200 OK', {'ok': True})
+    trigger_broadcast({'type': 'delete', 'id': message_id, 'request_id': request_id})
+    json_response('200 OK', {'ok': True, 'id': message_id, 'request_id': request_id})
 
 
 def handle_image_upload(member):
@@ -194,6 +241,20 @@ def handle_image_upload(member):
         json_response('400 Bad Request', {'error': 'Ingen bild valdes.'})
         return
 
+    request_id, error = parse_request_id(form.getvalue('request_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error})
+        return
+
+    if request_id:
+        existing = get_message_by_request_id(request_id)
+        if existing is not None:
+            # A retried upload (same request_id as before) - hand back the
+            # message that was already saved rather than writing a second
+            # copy of the file and a second row.
+            json_response('200 OK', message_json(existing))
+            return
+
     data = field.file.read()
     if detect_image_mime(data) is None:
         json_response('400 Bad Request', {'error': 'Filen är ingen känd bildtyp.'})
@@ -210,7 +271,7 @@ def handle_image_upload(member):
 
     try:
         message_id, created_at = create_message(member.id, body=body, image_uuid=image_uuid,
-                                                  image_size_bytes=len(data))
+                                                  image_size_bytes=len(data), request_id=request_id)
     except Exception:
         # Write succeeded but the DB insert didn't - clean up the orphaned
         # file rather than leaving it unreferenced (see CHAT.md's
@@ -223,8 +284,9 @@ def handle_image_upload(member):
         return
 
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
-               'image_id': image_uuid, 'created_at': iso_utc(created_at),
-               'profile_picture': member.profile_picture}
+               'image_id': image_uuid, 'request_id': request_id,
+               'created_at': iso_utc(created_at),
+               'profile_picture': member.profile_picture, 'name': member.name}
     trigger_broadcast({'type': 'message', **payload})
     json_response('200 OK', payload)
 

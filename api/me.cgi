@@ -20,6 +20,7 @@ def member_json(member):
         'is_active': member.is_active,
         'is_admin': member.is_admin,
         'profile_picture': member.profile_picture,
+        'name': member.name,
     }
 
 
@@ -32,9 +33,10 @@ def handle_update_profile(member, values):
     instruments = (values.get('instruments') or '').strip() or None
     description = (values.get('description') or '').strip() or None
     is_active = bool(values.get('is_active', member.is_active))
+    name = (values.get('name') or '').strip() or None
 
     try:
-        update_profile(member.id, email, instruments, description, is_active)
+        update_profile(member.id, email, instruments, description, is_active, name)
     except DuplicateEmailError:
         json_response('409 Conflict', {'error': 'Det finns redan en medlem med den e-postadressen.'})
         return
