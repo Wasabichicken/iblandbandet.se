@@ -96,7 +96,7 @@
                 <tbody>
 % for row in members:
                     <tr>
-                        <td><img class="avatar-thumbnail" src="${base_path + (row.profile_picture or '/static/img/avatars/_default.svg')}" alt=""></td>
+                        <td><img class="avatar-thumbnail" src="${base_path + avatar_url(row.profile_picture)}" alt=""></td>
                         <td>${row.email}</td>
                         <td>${row.name or '–'}</td>
                         <td>${row.instruments or '–'}</td>

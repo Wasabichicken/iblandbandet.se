@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from avatars import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from base_path import url
 from dal.members import (DuplicateEmailError, admin_update_member, delete_member, get_member_by_id,
                           list_all_members)
@@ -104,6 +105,19 @@ def handle_delete_member(member, target_id):
     target = get_member_by_id(target_id)
     if target is None:
         return 'Medlemmen hittades inte.', 'error'
+
+    # The page's own confirmation text already promises the profile picture
+    # is permanently removed too (see admin.mako) - this was previously not
+    # true, since delete_member() only ever removed the database row. Same
+    # UPLOAD_URL_PREFIX-prefix check profile.cgi's handle_remove_picture()
+    # already uses, so a member on the generic _default.svg fallback (no
+    # real uploaded file) isn't mistaken for one.
+    if target.profile_picture and target.profile_picture.startswith(UPLOAD_URL_PREFIX):
+        old_path = os.path.join(UPLOAD_DIR, target.profile_picture[len(UPLOAD_URL_PREFIX):])
+        try:
+            os.remove(old_path)
+        except OSError:
+            pass
 
     delete_member(target_id)
     return '{} har tagits bort.'.format(target.email), 'success'

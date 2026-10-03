@@ -99,6 +99,11 @@ CREATE TABLE iblandbandet_chat_messages (
     -- since it's optional - a client that doesn't care about retry-safety
     -- doesn't need to supply one.
     request_id UUID UNIQUE,
+    -- NULL until the first edit, then set to that edit's time (and every
+    -- edit after). Lets clients show an "edited" indicator without keeping
+    -- any actual edit history - the previous body is simply gone once
+    -- overwritten, same trusting posture as everything else here.
+    edited_at TIMESTAMPTZ,
     CHECK (body IS NOT NULL OR image_uuid IS NOT NULL)
 );
 

@@ -13,9 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cgi
 from api_auth import current_api_member
 from api_common import json_response, read_json_body
-from avatars import fix_upload_permissions
+from avatars import api_avatar_url, fix_upload_permissions
 from dal.chat import (create_message, delete_message, get_message_by_id,
-                       get_message_by_request_id, list_messages)
+                       get_message_by_request_id, list_messages, update_message_body)
 from htsecrets import get_secret
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -69,7 +69,8 @@ def message_json(row):
         'image_id': str(row.image_uuid).lower() if row.image_uuid else None,
         'request_id': str(row.request_id).lower() if row.request_id else None,
         'created_at': iso_utc(row.created_at),
-        'profile_picture': row.profile_picture,
+        'edited_at': iso_utc(row.edited_at),
+        'profile_picture': api_avatar_url(row.profile_picture),
         'name': row.name,
     }
 
@@ -177,7 +178,7 @@ def handle_send(member, values):
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
                'image_id': None, 'request_id': request_id,
                'created_at': iso_utc(created_at),
-               'profile_picture': member.profile_picture, 'name': member.name}
+               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name}
     trigger_broadcast({'type': 'message', **payload})
     json_response('200 OK', payload)
 
@@ -217,6 +218,54 @@ def handle_delete(member, values):
     delete_message(message_id)
     trigger_broadcast({'type': 'delete', 'id': message_id, 'request_id': request_id})
     json_response('200 OK', {'ok': True, 'id': message_id, 'request_id': request_id})
+
+
+def handle_edit(member, values):
+    # Same self-or-admin permission shape as handle_delete, and the same
+    # reasoning for request_id here: a correlation token echoed back on
+    # every response, not something stored or deduplicated against - an
+    # edit is just an UPDATE, already naturally safe to retry (resending
+    # the same new body twice is harmless, unlike a duplicate INSERT).
+    request_id, error = parse_request_id(values.get('request_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error})
+        return
+
+    message_id = values.get('message_id')
+    if not isinstance(message_id, int):
+        json_response('400 Bad Request', {'error': 'Ogiltigt id.', 'request_id': request_id})
+        return
+
+    message = get_message_by_id(message_id)
+    if message is None:
+        json_response('404 Not Found',
+                      {'error': 'Hittades inte.', 'id': message_id, 'request_id': request_id})
+        return
+    if message.member_id != member.id and not member.is_admin:
+        json_response('403 Forbidden',
+                       {'error': 'Du kan bara redigera dina egna meddelanden.',
+                        'id': message_id, 'request_id': request_id})
+        return
+
+    body = (values.get('body') or '').strip() or None
+    # Same rule as sending a new message: a text-only message can't be
+    # edited down to nothing (the table's CHECK would reject it anyway) -
+    # but an image message's caption can be cleared, since the image
+    # itself still satisfies that CHECK.
+    if not body and not message.image_uuid:
+        json_response('400 Bad Request',
+                       {'error': 'body måste fyllas i.', 'id': message_id, 'request_id': request_id})
+        return
+
+    update_message_body(message_id, body)
+    # Re-fetched rather than patched in place, so the response/broadcast
+    # reflects the real edited_at the database just assigned, and - when an
+    # admin edits someone else's message - the original sender's own
+    # profile_picture/name, not the editing admin's.
+    updated = get_message_by_id(message_id)
+    payload = message_json(updated)
+    trigger_broadcast({'type': 'edit', **payload})
+    json_response('200 OK', payload)
 
 
 def handle_image_upload(member):
@@ -286,7 +335,7 @@ def handle_image_upload(member):
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
                'image_id': image_uuid, 'request_id': request_id,
                'created_at': iso_utc(created_at),
-               'profile_picture': member.profile_picture, 'name': member.name}
+               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name}
     trigger_broadcast({'type': 'message', **payload})
     json_response('200 OK', payload)
 
@@ -323,6 +372,8 @@ def main():
         handle_send(member, values)
     elif action == 'delete':
         handle_delete(member, values)
+    elif action == 'edit':
+        handle_edit(member, values)
     else:
         json_response('400 Bad Request', {'error': 'Okänd åtgärd.'})
 

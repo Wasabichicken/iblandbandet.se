@@ -27,15 +27,22 @@ def create_message(member_id, body=None, image_uuid=None, image_size_bytes=None,
 
 
 def get_message_by_id(message_id):
+    # Includes the same profile_picture/name LEFT JOIN as list_messages() -
+    # needed so that re-fetching a message after an edit (see
+    # api/chat.cgi's handle_edit()) reflects the *original sender's* info
+    # even when an admin is the one editing someone else's message, not the
+    # editing admin's own.
     connection = get_connection()
     try:
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT id, member_id, body, image_uuid, image_size_bytes, request_id,
-                   created_at AT TIME ZONE 'UTC' AS created_at
-            FROM iblandbandet_chat_messages
-            WHERE id = ?
+            SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
+                   c.created_at AT TIME ZONE 'UTC' AS created_at,
+                   c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
+            FROM iblandbandet_chat_messages c
+            LEFT JOIN iblandbandet_members m ON m.id = c.member_id
+            WHERE c.id = ?
             """,
             message_id,
         )
@@ -49,17 +56,17 @@ def get_message_by_request_id(request_id):
     # that resent the same request_id after a dropped connection/timeout
     # gets back the message that was already saved, instead of hitting the
     # UNIQUE constraint as a raw database error. Includes the same
-    # profile_picture/name LEFT JOIN as list_messages() - unlike
-    # get_message_by_id() (only ever used for an ownership check, never
-    # serialized), this row does get handed straight to message_json(),
-    # which expects those columns to be there.
+    # profile_picture/name LEFT JOIN as list_messages()/get_message_by_id() -
+    # this row gets handed straight to message_json(), which expects those
+    # columns to be there.
     connection = get_connection()
     try:
         cursor = connection.cursor()
         cursor.execute(
             """
             SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                   c.created_at AT TIME ZONE 'UTC' AS created_at, m.profile_picture, m.name
+                   c.created_at AT TIME ZONE 'UTC' AS created_at,
+                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
             FROM iblandbandet_chat_messages c
             LEFT JOIN iblandbandet_members m ON m.id = c.member_id
             WHERE c.request_id = ?
@@ -90,7 +97,8 @@ def list_messages(before_id=None, limit=50):
             cursor.execute(
                 """
                 SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                       c.created_at AT TIME ZONE 'UTC' AS created_at, m.profile_picture, m.name
+                       c.created_at AT TIME ZONE 'UTC' AS created_at,
+                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
                 FROM iblandbandet_chat_messages c
                 LEFT JOIN iblandbandet_members m ON m.id = c.member_id
                 ORDER BY c.id DESC
@@ -102,7 +110,8 @@ def list_messages(before_id=None, limit=50):
             cursor.execute(
                 """
                 SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                       c.created_at AT TIME ZONE 'UTC' AS created_at, m.profile_picture, m.name
+                       c.created_at AT TIME ZONE 'UTC' AS created_at,
+                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
                 FROM iblandbandet_chat_messages c
                 LEFT JOIN iblandbandet_members m ON m.id = c.member_id
                 WHERE c.id < ?
@@ -112,6 +121,21 @@ def list_messages(before_id=None, limit=50):
                 before_id, limit,
             )
         return cursor.fetchall()
+    finally:
+        connection.close()
+
+
+def update_message_body(message_id, body):
+    # Overwrites in place - no edit history kept, same trusting, no-audit-
+    # trail posture as everything else here. edited_at marks that *an* edit
+    # happened and when the latest one was; it doesn't accumulate a log.
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "UPDATE iblandbandet_chat_messages SET body = ?, edited_at = now() WHERE id = ?",
+            body, message_id,
+        )
     finally:
         connection.close()
 

@@ -3,6 +3,7 @@ import sys
 
 from mako.lookup import TemplateLookup
 
+from avatars import avatar_url
 from base_path import get_base_path
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +25,10 @@ def render(template_name, **context):
     # needs it for every href/src/action, same reasoning as why 'member'
     # is required but this one isn't.
     context.setdefault('base_path', get_base_path())
+    # Same reasoning as base_path above: every template that shows an
+    # avatar needs this, so it's injected here rather than requiring each
+    # .cgi script to pass it explicitly.
+    context.setdefault('avatar_url', avatar_url)
     output = template.render(**context)
     _fix_module_permissions()
     # Writing raw bytes to the underlying buffer, not print(), because CGI's

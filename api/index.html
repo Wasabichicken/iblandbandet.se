@@ -154,7 +154,7 @@ currently no way for a member to see a list of their own outstanding tokens.
     "description": "Lärare på mellanstadiet, spelar klarinett...",
     "is_active": true,
     "is_admin": false,
-    "profile_picture": "/static/uploads/avatars/39_initials.svg",
+    "profile_picture": "/api/avatar.cgi?file=39_initials.svg",
     "name": "Klarinett-Anna"
   }
 }</code></pre>
@@ -175,13 +175,23 @@ currently no way for a member to see a list of their own outstanding tokens.
   "description": "Lärare på mellanstadiet, spelar klarinett...",
   "is_active": true,
   "is_admin": false,
-  "profile_picture": "/static/uploads/avatars/39_initials.svg",
+  "profile_picture": "/api/avatar.cgi?file=39_initials.svg",
   "name": "Klarinett-Anna"
 }</code></pre>
 
 <p><code>instruments</code>, <code>description</code>, <code>profile_picture</code>, and <code>name</code>
 can be <code>null</code> — a member isn't required to fill any of those in. A <code>null</code>
 <code>profile_picture</code> means "show a generic default image," the same as the website does.</p>
+
+<div class="note">
+<strong><code>profile_picture</code> is a URL you fetch with the same bearer token, not a plain public
+image link.</strong> It points at <code class="path">/api/avatar.cgi</code>, which requires the
+identical <code>Authorization: Bearer &lt;token&gt;</code> header you'd send to any other
+endpoint here — <span class="status-ok">200 OK</span> with the raw image bytes if you send it,
+<span class="status-err">401 Unauthorized</span> if not. Avatars used to be plain public static
+files; they no longer are, so don't hand this URL to anything (an image cache, a `&lt;img&gt;` tag
+in a context that can't attach a header) that can't send the token along with it.
+</div>
 
 <div class="note">
 <strong><code>name</code> ("Artistnamn" on the website) is an optional, self-chosen nickname, not a
@@ -352,7 +362,8 @@ over the socket.
     "image_id": null,
     "request_id": null,
     "created_at": "2026-10-01T18:03:00Z",
-    "profile_picture": "/static/uploads/avatars/5_initials.svg",
+    "edited_at": null,
+    "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
     "name": "Klarinett-Anna"
   }
 ]</code></pre>
@@ -361,7 +372,9 @@ over the socket.
 (the oldest <code>id</code> you've already seen); <code>?limit=</code> caps how many come back
 (default 50, max 100). <code>member_id</code>, <code>profile_picture</code>, and <code>name</code>
 can all be <code>null</code> — a message from a member who has since deleted their account still
-shows up in history, just with no sender to attribute it to.</p>
+shows up in history, just with no sender to attribute it to. <code>edited_at</code> is
+<code>null</code> until the message has been edited at least once (see <code>POST</code> below) -
+worth showing as e.g. "(redigerat)" when it isn't.</p>
 
 <div class="note">
 There's no separate endpoint to look up a member's avatar or name. Both ride along on every message
@@ -417,6 +430,19 @@ anyone can delete their own message, but only admins can delete someone else's.
 <code>request_id</code> is present but not a valid UUID. The <code>id</code>/<code>request_id</code>
 pair is included on every one of these error responses too, not just success.</p>
 
+<p><strong>Edit a message</strong> — request body:</p>
+<pre><code>{"action": "edit", "message_id": 123, "body": "hej igen 👋", "request_id": "5e6f7a8b-..."}</code></pre>
+<p><span class="status-ok">200 OK</span> with the updated message (same shape as the list above,
+<code>edited_at</code> now set). Only <code>body</code> is editable — there's no way to swap a
+message's image via edit; send a new message for that. Same permissions as delete: your own
+messages, or anyone's if you're an admin — in which case the response still reflects the
+<em>original sender's</em> <code>member_id</code>/<code>profile_picture</code>/<code>name</code>,
+not yours. <span class="status-err">403 Forbidden</span>/<span class="status-err">404 Not
+Found</span> under the same conditions as delete. <span class="status-err">400 Bad Request</span>
+if <code>message_id</code> isn't a number, <code>request_id</code> is present but not a valid UUID,
+or <code>body</code> would end up blank on a message with no image (an image message's caption can
+be cleared to blank; a text-only message can't be edited down to nothing).</p>
+
 <h3 id="chat-socket">WebSocket — live delivery</h3>
 
 <pre><code>wss://chat.iblandbandet.workers.dev/socket</code></pre>
@@ -442,9 +468,12 @@ tab. Every real client here is expected to be the mobile app itself.
 <p><strong>Delete a message</strong> over the socket:</p>
 <pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
 
+<p><strong>Edit a message</strong> over the socket:</p>
+<pre><code>{"type": "edit", "id": 123, "body": "hej igen 👋", "request_id": "5e6f7a8b-..."}</code></pre>
+
 <p><code>request_id</code> here is the same optional UUID documented under <code>POST</code> above
-— it works identically whichever path a client uses, since both end up persisting through the same
-<code class="path">api/chat.cgi</code>.</p>
+— it works identically whichever path a client uses, since all three end up persisting through the
+same <code class="path">api/chat.cgi</code>.</p>
 
 <p>The server confirms by broadcasting to every connected client, sender included — same shape as a
 row from <code>GET</code> above:</p>
@@ -456,22 +485,35 @@ row from <code>GET</code> above:</p>
   "image_id": null,
   "request_id": "3f8e9c2a-...",
   "created_at": "2026-10-01T18:03:00Z",
-  "profile_picture": "/static/uploads/avatars/5_initials.svg",
+  "edited_at": null,
+  "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
   "name": "Klarinett-Anna"
 }</code></pre>
 <pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
+<pre><code>{
+  "type": "edit",
+  "id": 123,
+  "member_id": 5,
+  "body": "hej igen 👋",
+  "image_id": null,
+  "request_id": null,
+  "created_at": "2026-10-01T18:03:00Z",
+  "edited_at": "2026-10-02T09:12:00Z",
+  "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
+  "name": "Klarinett-Anna"
+}</code></pre>
 
-<p>If a send/delete fails (blank body, deleting someone else's message, etc.), only the requester
-gets an error — nothing is broadcast. Its own <code>request_id</code> (or whichever request
-actually failed) comes back too, so it's clear which in-flight request this was about:</p>
+<p>If a send/delete/edit fails (blank body, acting on someone else's message, etc.), only the
+requester gets an error — nothing is broadcast. Its own <code>request_id</code> (or whichever
+request actually failed) comes back too, so it's clear which in-flight request this was about:</p>
 <pre><code>{"type": "error", "message": "Du kan bara ta bort dina egna meddelanden.", "request_id": "9a1b2c3d-..."}</code></pre>
 
 <div class="note">
 <strong>Images are still sent over the REST endpoint above, never the socket</strong> — the
 <code>multipart/form-data</code> upload described under <code>POST</code>. The socket only carries
-plain <code>message</code>/<code>delete</code> JSON. An uploaded image still broadcasts live to
-everyone connected, exactly like a text message does; it just gets there via a different path
-server-side, not something a client needs to think about.
+plain <code>message</code>/<code>delete</code>/<code>edit</code> JSON. An uploaded image still
+broadcasts live to everyone connected, exactly like a text message does; it just gets there via a
+different path server-side, not something a client needs to think about.
 </div>
 
 <p>History is REST-only — fetch it with <code>GET</code> above (paginated via

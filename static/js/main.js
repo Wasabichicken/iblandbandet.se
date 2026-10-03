@@ -60,3 +60,22 @@ document.addEventListener('keydown', e => {
 });
 
 if (sidebar.dataset.openOnLoad) openSidebar();
+
+// Info-icon tooltips (e.g. next to form field labels, explaining what a
+// field is used for) - same hand-rolled show/hide pattern as drive.js's
+// "..." action menu: plain CSS classes, no Bootstrap JS bundle pulled in
+// just for this.
+document.querySelectorAll('.info-tooltip-toggle').forEach(toggle => {
+    toggle.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const text = toggle.nextElementSibling;
+        const wasOpen = text.classList.contains('show');
+        document.querySelectorAll('.info-tooltip-text.show').forEach(t => t.classList.remove('show'));
+        if (!wasOpen) text.classList.add('show');
+    });
+});
+
+document.addEventListener('click', () => {
+    document.querySelectorAll('.info-tooltip-text.show').forEach(t => t.classList.remove('show'));
+});

@@ -27,6 +27,7 @@ def main():
         webcal_url='webcal://{}{}'.format(host, url('/calendar.ics')),
         login_failed='login_failed' in query,
         password_reset='password_reset' in query,
+        account_deleted='account_deleted' in query,
         subtitle=get_random_subtitle() or DEFAULT_SUBTITLE,
     )
 

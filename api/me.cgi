@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api_auth import current_api_member, get_bearer_token
 from api_common import json_response, read_json_body
+from avatars import api_avatar_url
 from dal.api_tokens import delete_other_api_tokens
 from dal.members import DuplicateEmailError, update_password, update_profile, verify_password
 
@@ -19,7 +20,7 @@ def member_json(member):
         'description': member.description,
         'is_active': member.is_active,
         'is_admin': member.is_admin,
-        'profile_picture': member.profile_picture,
+        'profile_picture': api_avatar_url(member.profile_picture),
         'name': member.name,
     }
 

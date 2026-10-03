@@ -1,5 +1,5 @@
     <nav id="sidebar" aria-label="Huvudmeny" aria-hidden="true"\
-% if context.get('login_failed', False) or context.get('password_reset', False):
+% if context.get('login_failed', False) or context.get('password_reset', False) or context.get('account_deleted', False):
  data-open-on-load="true"\
 % endif
 >
@@ -17,6 +17,9 @@
 % endif
 % if context.get('password_reset', False):
             <p class="sidebar-login-success">Lösenordet har bytts. Logga in med ditt nya lösenord.</p>
+% endif
+% if context.get('account_deleted', False):
+            <p class="sidebar-login-success">Ditt konto har raderats.</p>
 % endif
             <div class="sidebar-login-field">
                 <label for="sidebar-email">E-postadress</label>

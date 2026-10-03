@@ -121,6 +121,11 @@ export class ChatRoom {
         } else if (data.type === 'delete') {
             await this.persistAndBroadcast(
                 session, { action: 'delete', message_id: data.id, request_id: data.request_id }, data.request_id);
+        } else if (data.type === 'edit') {
+            await this.persistAndBroadcast(
+                session,
+                { action: 'edit', message_id: data.id, body: data.body, request_id: data.request_id },
+                data.request_id);
         } else {
             this.sendError(session, 'Okänd åtgärd.', data.request_id);
         }

@@ -190,7 +190,7 @@
                     </td>
                     <td class="drive-col-owner">
 % if entry['owner_id']:
-                        <img class="avatar-thumbnail" src="${base_path + (entry['profile_picture'] or '/static/img/avatars/_default.svg')}" alt="">
+                        <img class="avatar-thumbnail" src="${base_path + avatar_url(entry['profile_picture'])}" alt="">
 % endif
                     </td>
                     <td class="scores-col-modified">${entry['created']}</td>

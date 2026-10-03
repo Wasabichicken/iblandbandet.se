@@ -154,6 +154,20 @@ def admin_update_member(member_id, email, instruments, description, is_active, i
         connection.close()
 
 
+def count_admins():
+    # Used to stop the last remaining admin from deleting their own account
+    # via self-service deletion (members/profile.cgi) - the admin panel's
+    # own chicken-and-egg problem (no in-app way to promote the *first*
+    # admin) means reaching zero admins has no in-app way back either.
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT COUNT(*) AS n FROM iblandbandet_members WHERE is_admin")
+        return cursor.fetchone().n
+    finally:
+        connection.close()
+
+
 def delete_member(member_id):
     connection = get_connection()
     try:

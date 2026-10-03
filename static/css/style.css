@@ -706,6 +706,46 @@ footer {
     background: none;
 }
 
+.info-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 0.3rem;
+}
+
+.info-tooltip-toggle {
+    border: none;
+    background: none;
+    padding: 0;
+    line-height: 1;
+    color: rgba(44, 44, 44, 0.55);
+    cursor: pointer;
+}
+
+.info-tooltip-toggle:hover {
+    color: var(--text);
+}
+
+.info-tooltip-text {
+    display: none;
+    position: absolute;
+    top: 135%;
+    left: 0;
+    z-index: 20;
+    width: 240px;
+    background: var(--warm-white);
+    color: var(--dark);
+    border: 1px solid var(--teal);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: normal;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.info-tooltip-text.show {
+    display: block;
+}
+
 /* Profile picture */
 
 .profile-picture-preview {

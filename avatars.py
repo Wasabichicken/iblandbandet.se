@@ -64,6 +64,52 @@ def generate_and_save_initials_avatar(member_id, email):
     return UPLOAD_URL_PREFIX + filename
 
 
+_CONTENT_TYPES = {'.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
+
+
+def resolve_avatar_file(filename):
+    """Validates a requested avatar filename stays within UPLOAD_DIR - same
+    realpath-containment check scores_common.py's resolve_path() uses,
+    since this comes from a query string parameter a logged-in member/API
+    client controls directly. Returns the full path, or None if missing/
+    outside UPLOAD_DIR."""
+    if not filename:
+        return None
+    root = os.path.realpath(UPLOAD_DIR)
+    target = os.path.realpath(os.path.join(root, filename))
+    if target != root and not target.startswith(root + os.sep):
+        return None
+    return target
+
+
+def avatar_content_type(filename):
+    return _CONTENT_TYPES.get(os.path.splitext(filename)[1].lower())
+
+
+def avatar_url(profile_picture):
+    """The <img src> to use on the *website* for a member's avatar. The
+    generic default stays a plain public static file (nothing about it
+    identifies anyone); a real uploaded/generated avatar is only ever
+    served through the login-gated members/avatar.cgi, never the raw
+    static path it's actually stored under (see UPLOAD_URL_PREFIX)."""
+    if not profile_picture:
+        return '/static/img/avatars/_default.svg'
+    filename = profile_picture[len(UPLOAD_URL_PREFIX):]
+    return '/members/avatar.cgi?file=' + urllib.parse.quote(filename)
+
+
+def api_avatar_url(profile_picture):
+    """Same as avatar_url(), but for API responses - gated by the bearer-
+    token-authenticated api/avatar.cgi instead of the website's session-
+    cookie-gated members/avatar.cgi. Never base_path-prefixed: the API is
+    only ever reached through the public proxied domain, same reasoning
+    as every other URL api/*.cgi already hands back."""
+    if not profile_picture:
+        return '/static/img/avatars/_default.svg'
+    filename = profile_picture[len(UPLOAD_URL_PREFIX):]
+    return '/api/avatar.cgi?file=' + urllib.parse.quote(filename)
+
+
 def fix_upload_permissions(directory, file_path):
     """Make an uploads directory/file readable by Apache's static-file server.
 
