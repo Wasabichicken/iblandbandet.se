@@ -41,6 +41,7 @@
             <p>Inloggad som ${member.email}</p>
             <ul>
                 <li><a href="${base_path}/members/profile.cgi" class="sidebar-link">Min profil</a></li>
+                <li><a href="${base_path}/members/chat.cgi" class="sidebar-link">Chatt</a></li>
                 <li><a href="${base_path}/members/scores.cgi" class="sidebar-link">Noter</a></li>
                 <li><a href="${base_path}/members/drive.cgi" class="sidebar-link">Filer</a></li>
 % if member.is_admin:

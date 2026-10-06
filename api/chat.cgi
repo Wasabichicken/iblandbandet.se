@@ -15,12 +15,22 @@ from api_auth import current_api_member
 from api_common import json_response, read_json_body
 from avatars import api_avatar_url, fix_upload_permissions
 from dal.chat import (create_message, delete_message, get_message_by_id,
-                       get_message_by_request_id, list_messages, update_message_body)
+                       get_message_by_request_id, list_messages, list_reactions_for_messages,
+                       remove_reaction, set_reaction, update_message_body)
 from htsecrets import get_secret
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 DEFAULT_LIST_LIMIT = 50
 MAX_LIST_LIMIT = 100
+# Generous enough for any single emoji, including multi-codepoint ZWJ
+# sequences (e.g. a family emoji) - small enough to reject someone storing
+# a whole sentence as their "reaction".
+MAX_EMOJI_LENGTH = 32
+# A reply's quoted preview is truncated to this many characters at
+# snapshot time (see build_reply_fields()) - otherwise quoting a very long
+# original duplicates all of it forever, outliving the original's own
+# edit or deletion.
+MAX_REPLY_PREVIEW_LENGTH = 300
 
 # Sniffed from the file's own bytes rather than stored as a column - chat
 # only has a small, known set of realistic phone-camera/screenshot formats,
@@ -55,7 +65,7 @@ def iso_utc(dt):
     return dt.strftime('%Y-%m-%dT%H:%M:%SZ') if dt else None
 
 
-def message_json(row):
+def message_json(row, reactions=None):
     return {
         'id': row.id,
         'member_id': row.member_id,
@@ -72,6 +82,19 @@ def message_json(row):
         'edited_at': iso_utc(row.edited_at),
         'profile_picture': api_avatar_url(row.profile_picture),
         'name': row.name,
+        'reactions': [{'member_id': r.member_id, 'name': r.name, 'emoji': r.emoji}
+                      for r in (reactions or [])],
+        # reply_preview_name is the "is this a reply at all" signal, not
+        # reply_to_id - the latter goes NULL (ON DELETE SET NULL) once the
+        # quoted message is deleted, but the snapshot below is captured
+        # once at send time (see build_reply_fields()) and survives that
+        # regardless, so the quote keeps rendering even then.
+        'reply_to': None if row.reply_preview_name is None else {
+            'id': row.reply_to_id,
+            'name': row.reply_preview_name,
+            'body': row.reply_preview_body,
+            'is_image': bool(row.reply_preview_is_image),
+        },
     }
 
 
@@ -89,6 +112,43 @@ def parse_request_id(raw):
         return str(uuid.UUID(raw)), None
     except (ValueError, AttributeError, TypeError):
         return None, 'Ogiltigt request_id.'
+
+
+def build_reply_fields(raw_reply_to_id):
+    """Resolves an optional reply_to_id (int from a JSON body, or a digit
+    string from a multipart form field) into the 4 reply_to_id/
+    reply_preview_* kwargs create_message() expects. The preview snapshot
+    is derived here, from the server's own lookup of the quoted message -
+    never from anything the client supplies - so a reply can't be used to
+    forge a quote attributed to someone else. Returns (fields, error);
+    fields is all-None when raw_reply_to_id is empty (not a reply)."""
+    empty = {'reply_to_id': None, 'reply_preview_name': None,
+             'reply_preview_body': None, 'reply_preview_is_image': None}
+    if not raw_reply_to_id:
+        return empty, None
+
+    if isinstance(raw_reply_to_id, int):
+        reply_to_id = raw_reply_to_id
+    elif isinstance(raw_reply_to_id, str) and raw_reply_to_id.isdigit():
+        reply_to_id = int(raw_reply_to_id)
+    else:
+        return None, 'Ogiltigt reply_to_id.'
+
+    parent = get_message_by_id(reply_to_id)
+    if parent is None:
+        return None, 'Det meddelandet finns inte längre.'
+
+    name = parent.name
+    if name is None:
+        name = '(borttagen medlem)' if parent.member_id is None else 'Medlem #{}'.format(parent.member_id)
+    body = (parent.body or '')[:MAX_REPLY_PREVIEW_LENGTH] or None
+
+    return {
+        'reply_to_id': reply_to_id,
+        'reply_preview_name': name,
+        'reply_preview_body': body,
+        'reply_preview_is_image': parent.image_uuid is not None,
+    }, None
 
 
 def trigger_broadcast(payload):
@@ -134,7 +194,9 @@ def handle_list(query):
     limit = max(1, min(limit, MAX_LIST_LIMIT))
 
     messages = list_messages(before_id=before_id, limit=limit)
-    json_response('200 OK', [message_json(row) for row in messages])
+    reactions_by_id = list_reactions_for_messages([row.id for row in messages])
+    json_response('200 OK',
+                   [message_json(row, reactions=reactions_by_id.get(row.id, [])) for row in messages])
 
 
 def serve_image(image_id):
@@ -165,20 +227,44 @@ def handle_send(member, values):
         json_response('400 Bad Request', {'error': error})
         return
 
+    reply_fields, error = build_reply_fields(values.get('reply_to_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error, 'request_id': request_id})
+        return
+
     if request_id:
         existing = get_message_by_request_id(request_id)
         if existing is not None:
             # A retried send (same request_id as before) - hand back the
             # message that was already saved instead of creating a real
             # duplicate or broadcasting it a second time.
-            json_response('200 OK', message_json(existing))
+            reactions = list_reactions_for_messages([existing.id]).get(existing.id, [])
+            json_response('200 OK', message_json(existing, reactions=reactions))
             return
 
-    message_id, created_at = create_message(member.id, body=body, request_id=request_id)
+    try:
+        message_id, created_at = create_message(member.id, body=body, request_id=request_id, **reply_fields)
+    except Exception:
+        if reply_fields['reply_to_id'] is not None:
+            # The quoted message was deleted in the gap between
+            # build_reply_fields()'s lookup and this INSERT - reply_to_id's
+            # FK rejects the row.
+            json_response('400 Bad Request',
+                           {'error': 'Det meddelandet finns inte längre.', 'request_id': request_id})
+            return
+        raise
+
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
                'image_id': None, 'request_id': request_id,
                'created_at': iso_utc(created_at),
-               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name}
+               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name,
+               'reactions': [],
+               'reply_to': None if reply_fields['reply_preview_name'] is None else {
+                   'id': reply_fields['reply_to_id'],
+                   'name': reply_fields['reply_preview_name'],
+                   'body': reply_fields['reply_preview_body'],
+                   'is_image': bool(reply_fields['reply_preview_is_image']),
+               }}
     trigger_broadcast({'type': 'message', **payload})
     json_response('200 OK', payload)
 
@@ -263,7 +349,12 @@ def handle_edit(member, values):
     # admin edits someone else's message - the original sender's own
     # profile_picture/name, not the editing admin's.
     updated = get_message_by_id(message_id)
-    payload = message_json(updated)
+    # Reactions aren't touched by an edit, but still re-fetched here - a
+    # bare message_json(updated) would default to reactions=[] and the
+    # broadcast would wrongly read as "all reactions removed" to every
+    # connected client until their next history fetch.
+    reactions = list_reactions_for_messages([message_id]).get(message_id, [])
+    payload = message_json(updated, reactions=reactions)
     trigger_broadcast({'type': 'edit', **payload})
     json_response('200 OK', payload)
 
@@ -295,13 +386,19 @@ def handle_image_upload(member):
         json_response('400 Bad Request', {'error': error})
         return
 
+    reply_fields, error = build_reply_fields(form.getvalue('reply_to_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error, 'request_id': request_id})
+        return
+
     if request_id:
         existing = get_message_by_request_id(request_id)
         if existing is not None:
             # A retried upload (same request_id as before) - hand back the
             # message that was already saved rather than writing a second
             # copy of the file and a second row.
-            json_response('200 OK', message_json(existing))
+            reactions = list_reactions_for_messages([existing.id]).get(existing.id, [])
+            json_response('200 OK', message_json(existing, reactions=reactions))
             return
 
     data = field.file.read()
@@ -320,7 +417,8 @@ def handle_image_upload(member):
 
     try:
         message_id, created_at = create_message(member.id, body=body, image_uuid=image_uuid,
-                                                  image_size_bytes=len(data), request_id=request_id)
+                                                  image_size_bytes=len(data), request_id=request_id,
+                                                  **reply_fields)
     except Exception:
         # Write succeeded but the DB insert didn't - clean up the orphaned
         # file rather than leaving it unreferenced (see CHAT.md's
@@ -329,14 +427,71 @@ def handle_image_upload(member):
             os.remove(file_path)
         except OSError:
             pass
-        json_response('500 Internal Server Error', {'error': 'Meddelandet kunde inte sparas.'})
+        if reply_fields['reply_to_id'] is not None:
+            # The quoted message was deleted in the gap between
+            # build_reply_fields()'s lookup and this INSERT.
+            json_response('400 Bad Request',
+                           {'error': 'Det meddelandet finns inte längre.', 'request_id': request_id})
+        else:
+            json_response('500 Internal Server Error', {'error': 'Meddelandet kunde inte sparas.'})
         return
 
     payload = {'id': message_id, 'member_id': member.id, 'body': body,
                'image_id': image_uuid, 'request_id': request_id,
                'created_at': iso_utc(created_at),
-               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name}
+               'edited_at': None, 'profile_picture': api_avatar_url(member.profile_picture), 'name': member.name,
+               'reactions': [],
+               'reply_to': None if reply_fields['reply_preview_name'] is None else {
+                   'id': reply_fields['reply_to_id'],
+                   'name': reply_fields['reply_preview_name'],
+                   'body': reply_fields['reply_preview_body'],
+                   'is_image': bool(reply_fields['reply_preview_is_image']),
+               }}
     trigger_broadcast({'type': 'message', **payload})
+    json_response('200 OK', payload)
+
+
+def handle_react(member, values):
+    # No ownership check - a reaction always acts on the authenticated
+    # caller's own member.id, never a client-supplied member id, so there's
+    # nothing to own-or-admin-gate the way handle_delete/handle_edit do.
+    request_id, error = parse_request_id(values.get('request_id'))
+    if error:
+        json_response('400 Bad Request', {'error': error})
+        return
+
+    message_id = values.get('message_id')
+    if not isinstance(message_id, int):
+        json_response('400 Bad Request', {'error': 'Ogiltigt id.', 'request_id': request_id})
+        return
+
+    emoji = values.get('emoji')
+    if emoji is not None and (not isinstance(emoji, str) or not emoji or len(emoji) > MAX_EMOJI_LENGTH):
+        json_response('400 Bad Request', {'error': 'Ogiltig emoji.', 'request_id': request_id})
+        return
+
+    message = get_message_by_id(message_id)
+    if message is None:
+        json_response('404 Not Found',
+                       {'error': 'Hittades inte.', 'id': message_id, 'request_id': request_id})
+        return
+
+    current = list_reactions_for_messages([message_id]).get(message_id, [])
+    mine = next((r for r in current if r.member_id == member.id), None)
+
+    if emoji is None:
+        remove_reaction(message_id, member.id)
+    elif mine is not None and mine.emoji == emoji:
+        # Picking the same emoji you already reacted with is a toggle-off -
+        # enforced here too, not just as client-side convenience, so a
+        # REST-only caller (e.g. the mobile app) gets the same behavior.
+        remove_reaction(message_id, member.id)
+    else:
+        set_reaction(message_id, member.id, emoji)
+
+    reactions = list_reactions_for_messages([message_id]).get(message_id, [])
+    payload = message_json(message, reactions=reactions)
+    trigger_broadcast({'type': 'reaction', **payload})
     json_response('200 OK', payload)
 
 
@@ -374,6 +529,8 @@ def main():
         handle_delete(member, values)
     elif action == 'edit':
         handle_edit(member, values)
+    elif action == 'react':
+        handle_react(member, values)
     else:
         json_response('400 Bad Request', {'error': 'Okänd åtgärd.'})
 

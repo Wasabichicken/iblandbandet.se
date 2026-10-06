@@ -7,18 +7,30 @@ from dal.db import get_connection
 # same reasoning as list_all_events_utc() but without needing a separate
 # naive-local variant alongside it, since nothing here ever needs one.
 
+_MESSAGE_COLUMNS = """
+    c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
+    c.created_at AT TIME ZONE 'UTC' AS created_at,
+    c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name,
+    c.reply_to_id, c.reply_preview_name, c.reply_preview_body, c.reply_preview_is_image
+"""
 
-def create_message(member_id, body=None, image_uuid=None, image_size_bytes=None, request_id=None):
+
+def create_message(member_id, body=None, image_uuid=None, image_size_bytes=None, request_id=None,
+                    reply_to_id=None, reply_preview_name=None, reply_preview_body=None,
+                    reply_preview_is_image=None):
     connection = get_connection()
     try:
         cursor = connection.cursor()
         cursor.execute(
             """
-            INSERT INTO iblandbandet_chat_messages (member_id, body, image_uuid, image_size_bytes, request_id)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO iblandbandet_chat_messages
+                (member_id, body, image_uuid, image_size_bytes, request_id,
+                 reply_to_id, reply_preview_name, reply_preview_body, reply_preview_is_image)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id, created_at AT TIME ZONE 'UTC' AS created_at
             """,
             member_id, body, image_uuid, image_size_bytes, request_id,
+            reply_to_id, reply_preview_name, reply_preview_body, reply_preview_is_image,
         )
         row = cursor.fetchone()
         return row.id, row.created_at
@@ -37,13 +49,11 @@ def get_message_by_id(message_id):
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                   c.created_at AT TIME ZONE 'UTC' AS created_at,
-                   c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
+            SELECT {columns}
             FROM iblandbandet_chat_messages c
             LEFT JOIN iblandbandet_members m ON m.id = c.member_id
             WHERE c.id = ?
-            """,
+            """.format(columns=_MESSAGE_COLUMNS),
             message_id,
         )
         return cursor.fetchone()
@@ -64,13 +74,11 @@ def get_message_by_request_id(request_id):
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                   c.created_at AT TIME ZONE 'UTC' AS created_at,
-                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
+            SELECT {columns}
             FROM iblandbandet_chat_messages c
             LEFT JOIN iblandbandet_members m ON m.id = c.member_id
             WHERE c.request_id = ?
-            """,
+            """.format(columns=_MESSAGE_COLUMNS),
             request_id,
         )
         return cursor.fetchone()
@@ -96,28 +104,24 @@ def list_messages(before_id=None, limit=50):
         if before_id is None:
             cursor.execute(
                 """
-                SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                       c.created_at AT TIME ZONE 'UTC' AS created_at,
-                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
+                SELECT {columns}
                 FROM iblandbandet_chat_messages c
                 LEFT JOIN iblandbandet_members m ON m.id = c.member_id
                 ORDER BY c.id DESC
                 LIMIT ?
-                """,
+                """.format(columns=_MESSAGE_COLUMNS),
                 limit,
             )
         else:
             cursor.execute(
                 """
-                SELECT c.id, c.member_id, c.body, c.image_uuid, c.image_size_bytes, c.request_id,
-                       c.created_at AT TIME ZONE 'UTC' AS created_at,
-                       c.edited_at AT TIME ZONE 'UTC' AS edited_at, m.profile_picture, m.name
+                SELECT {columns}
                 FROM iblandbandet_chat_messages c
                 LEFT JOIN iblandbandet_members m ON m.id = c.member_id
                 WHERE c.id < ?
                 ORDER BY c.id DESC
                 LIMIT ?
-                """,
+                """.format(columns=_MESSAGE_COLUMNS),
                 before_id, limit,
             )
         return cursor.fetchall()
@@ -145,5 +149,74 @@ def delete_message(message_id):
     try:
         cursor = connection.cursor()
         cursor.execute("DELETE FROM iblandbandet_chat_messages WHERE id = ?", message_id)
+    finally:
+        connection.close()
+
+
+def list_reactions_for_messages(message_ids):
+    # Returns {message_id: [row, ...]}, grouped here in Python rather than
+    # joined directly into list_messages()/get_message_by_id() - a reaction
+    # is one-to-many per message, so joining it straight into those
+    # (one-row-per-message) queries would multiply each message's row once
+    # per reaction. Batching all messages' reactions into one query (rather
+    # than one query per message) avoids an N+1 when listing a page of
+    # history. LEFT JOIN so a reaction from a since-deleted member still
+    # returns, with name=None.
+    if not message_ids:
+        return {}
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        # No prior dynamic IN (...) usage anywhere in dal/ - placeholders
+        # are built to match the number of ids, then the ids themselves are
+        # passed as individual positional params (not a single list/tuple
+        # value), same calling convention as every other ? param here.
+        placeholders = ','.join(['?'] * len(message_ids))
+        cursor.execute(
+            """
+            SELECT r.message_id, r.member_id, r.emoji, m.name
+            FROM iblandbandet_chat_reactions r
+            LEFT JOIN iblandbandet_members m ON m.id = r.member_id
+            WHERE r.message_id IN ({placeholders})
+            ORDER BY r.id
+            """.format(placeholders=placeholders),
+            *message_ids,
+        )
+        grouped = {}
+        for row in cursor.fetchall():
+            grouped.setdefault(row.message_id, []).append(row)
+        return grouped
+    finally:
+        connection.close()
+
+
+def set_reaction(message_id, member_id, emoji):
+    # First ON CONFLICT usage in this file - UPSERTs the member's reaction
+    # on this message, replacing whatever emoji they'd previously picked
+    # (UNIQUE(message_id, member_id) is what makes this a plain upsert
+    # rather than a second row).
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO iblandbandet_chat_reactions (message_id, member_id, emoji)
+            VALUES (?, ?, ?)
+            ON CONFLICT (message_id, member_id) DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()
+            """,
+            message_id, member_id, emoji,
+        )
+    finally:
+        connection.close()
+
+
+def remove_reaction(message_id, member_id):
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "DELETE FROM iblandbandet_chat_reactions WHERE message_id = ? AND member_id = ?",
+            message_id, member_id,
+        )
     finally:
         connection.close()

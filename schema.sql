@@ -107,6 +107,37 @@ CREATE TABLE iblandbandet_chat_messages (
     CHECK (body IS NOT NULL OR image_uuid IS NOT NULL)
 );
 
+-- One reaction per member per message (UNIQUE below) - picking a new emoji
+-- replaces the previous one; picking the same one again is a toggle-off
+-- (DELETE), enforced both client- and server-side. Unlike
+-- iblandbandet_chat_messages' own member_id (ON DELETE SET NULL - a
+-- message has standalone value independent of its author), a reaction is
+-- meaningless without its author, so it uses the same NOT NULL + ON DELETE
+-- CASCADE shape as iblandbandet_sessions/iblandbandet_api_tokens.
+CREATE TABLE iblandbandet_chat_reactions (
+    id SERIAL PRIMARY KEY,
+    message_id INTEGER NOT NULL REFERENCES iblandbandet_chat_messages(id) ON DELETE CASCADE,
+    member_id INTEGER NOT NULL REFERENCES iblandbandet_members(id) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (message_id, member_id)
+);
+
+-- Reply support: a reply is a message with an optional parent, not a
+-- separate table (one-to-one, not one-to-many). reply_to_id is ON DELETE
+-- SET NULL purely for an optional "scroll to original" nicety - the
+-- reply_preview_* columns are a snapshot taken once at send time (never
+-- re-joined live), so the quote keeps rendering correctly even after the
+-- parent is edited (shows pre-edit text) or deleted (reply_to_id alone
+-- goes NULL; the snapshot doesn't). "Is this a reply" is
+-- reply_preview_name IS NOT NULL, independent of whether reply_to_id
+-- survived.
+ALTER TABLE iblandbandet_chat_messages
+    ADD COLUMN reply_to_id INTEGER REFERENCES iblandbandet_chat_messages(id) ON DELETE SET NULL,
+    ADD COLUMN reply_preview_name TEXT,
+    ADD COLUMN reply_preview_body TEXT,
+    ADD COLUMN reply_preview_is_image BOOLEAN;
+
 -- Deliberately the same shape as iblandbandet_sessions (opaque token,
 -- only its hash stored) but a separate table, not a shared one - the two
 -- represent genuinely different clients with different lifetimes. Unlike

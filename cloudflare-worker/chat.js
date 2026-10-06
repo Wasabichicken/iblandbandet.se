@@ -61,12 +61,17 @@ export class ChatRoom {
             return new Response('Expected websocket', { status: 426 });
         }
 
-        // Browser JS's WebSocket API can't attach this header - but every
-        // real client here is either a native app or this project's own CLI
-        // test client, neither of which has that limitation. See CHAT.md's
-        // "Authentication on the WebSocket needs no special-casing".
+        // The mobile app and this project's own CLI test client attach a
+        // real Authorization header - browser JS's WebSocket API can't do
+        // that on the handshake at all, so the website's own chat page
+        // falls back to a ?token= query param instead (see CHAT.md's
+        // "Authentication on the WebSocket needs no special-casing" for why
+        // the header path needs no special-casing for *those* clients -
+        // this is the one genuine exception, scoped to browser clients only).
         const authHeader = request.headers.get('Authorization') || '';
-        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        const token = authHeader.startsWith('Bearer ')
+            ? authHeader.slice(7)
+            : new URL(request.url).searchParams.get('token');
         if (!token) {
             return new Response('Unauthorized', { status: 401 });
         }
@@ -117,7 +122,9 @@ export class ChatRoom {
         // several requests in flight at once can tell which one failed.
         if (data.type === 'message') {
             await this.persistAndBroadcast(
-                session, { action: 'send', body: data.body, request_id: data.request_id }, data.request_id);
+                session,
+                { action: 'send', body: data.body, reply_to_id: data.reply_to_id, request_id: data.request_id },
+                data.request_id);
         } else if (data.type === 'delete') {
             await this.persistAndBroadcast(
                 session, { action: 'delete', message_id: data.id, request_id: data.request_id }, data.request_id);
@@ -125,6 +132,11 @@ export class ChatRoom {
             await this.persistAndBroadcast(
                 session,
                 { action: 'edit', message_id: data.id, body: data.body, request_id: data.request_id },
+                data.request_id);
+        } else if (data.type === 'reaction') {
+            await this.persistAndBroadcast(
+                session,
+                { action: 'react', message_id: data.id, emoji: data.emoji, request_id: data.request_id },
                 data.request_id);
         } else {
             this.sendError(session, 'Okänd åtgärd.', data.request_id);

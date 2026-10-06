@@ -364,7 +364,9 @@ over the socket.
     "created_at": "2026-10-01T18:03:00Z",
     "edited_at": null,
     "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
-    "name": "Klarinett-Anna"
+    "name": "Klarinett-Anna",
+    "reactions": [{"member_id": 39, "name": "Annapanna", "emoji": "👍"}],
+    "reply_to": null
   }
 ]</code></pre>
 
@@ -374,7 +376,11 @@ over the socket.
 can all be <code>null</code> — a message from a member who has since deleted their account still
 shows up in history, just with no sender to attribute it to. <code>edited_at</code> is
 <code>null</code> until the message has been edited at least once (see <code>POST</code> below) -
-worth showing as e.g. "(redigerat)" when it isn't.</p>
+worth showing as e.g. "(redigerat)" when it isn't. <code>reactions</code> is always a (possibly
+empty) list of <code>{"member_id", "name", "emoji"}</code>, one per member currently reacting.
+<code>reply_to</code> is <code>null</code>, or <code>{"id", "name", "body", "is_image"}</code> — a
+snapshot of the quoted message taken when this reply was sent (see <code>POST</code> below) — when
+this message is a reply to an earlier one.</p>
 
 <div class="note">
 There's no separate endpoint to look up a member's avatar or name. Both ride along on every message
@@ -393,20 +399,25 @@ exist (or was deleted along with its message).</p>
 <h3 id="chat-post"><span class="method">POST</span><span class="path">/api/chat.cgi</span></h3>
 
 <p><strong>Send a text message</strong> — request body:</p>
-<pre><code>{"action": "send", "body": "hej 👋", "request_id": "3f8e9c2a-..."}</code></pre>
+<pre><code>{"action": "send", "body": "hej 👋", "reply_to_id": null, "request_id": "3f8e9c2a-..."}</code></pre>
 <p><span class="status-ok">200 OK</span> with the created message (same shape as the list above,
 <code>image_id</code> always <code>null</code>). <span class="status-err">400 Bad Request</span> if
-<code>body</code> is blank, or if <code>request_id</code> is present but not a valid UUID.</p>
+<code>body</code> is blank, if <code>request_id</code> is present but not a valid UUID, or if
+<code>reply_to_id</code> is given but doesn't match an existing message. <code>reply_to_id</code> is
+optional — the id of an earlier message to quote-reply to (its sender/body/image-ness is snapshotted
+into the response's <code>reply_to</code>, not re-derived later, so it keeps rendering correctly even
+if the quoted message is later edited or deleted).</p>
 
 <p><strong>Send an image</strong> — same endpoint, but as <code>multipart/form-data</code> instead
-of JSON: an <code>image</code> file field, plus optional <code>body</code> (a caption) and
-<code>request_id</code> fields. Sending an image <em>is</em> sending a message — there's no separate
-upload-then-reference step, so there's no window where an uploaded file exists without a message
-pointing at it. <span class="status-ok">200 OK</span> with the created message, <code>image_id</code>
-set to a value usable with <code>?image=</code> above. <span class="status-err">400 Bad Request</span>
-if no file was attached, its bytes aren't a recognizable image format (JPEG/PNG/GIF/WEBP), or
-<code>request_id</code> is present but not a valid UUID. <span class="status-err">413 Payload Too
-Large</span> above 10&nbsp;MB.</p>
+of JSON: an <code>image</code> file field, plus optional <code>body</code> (a caption),
+<code>reply_to_id</code>, and <code>request_id</code> fields. Sending an image <em>is</em> sending a
+message — there's no separate upload-then-reference step, so there's no window where an uploaded
+file exists without a message pointing at it. <span class="status-ok">200 OK</span> with the
+created message, <code>image_id</code> set to a value usable with <code>?image=</code> above.
+<span class="status-err">400 Bad Request</span> if no file was attached, its bytes aren't a
+recognizable image format (JPEG/PNG/GIF/WEBP), <code>request_id</code> is present but not a valid
+UUID, or <code>reply_to_id</code> is given but doesn't match an existing message.
+<span class="status-err">413 Payload Too Large</span> above 10&nbsp;MB.</p>
 
 <div class="note">
 <strong><code>request_id</code> is optional, but worth using.</strong> It's a UUID you generate
@@ -443,6 +454,17 @@ if <code>message_id</code> isn't a number, <code>request_id</code> is present bu
 or <code>body</code> would end up blank on a message with no image (an image message's caption can
 be cleared to blank; a text-only message can't be edited down to nothing).</p>
 
+<p><strong>React to a message</strong> — request body:</p>
+<pre><code>{"action": "react", "message_id": 123, "emoji": "👍", "request_id": "6b7c8d9e-..."}</code></pre>
+<p><span class="status-ok">200 OK</span> with the updated message (same shape as the list above,
+<code>reactions</code> reflecting the change). One reaction per member per message — sending a
+different <code>emoji</code> than your current one replaces it; sending the <em>same</em> one again
+removes it (<code>emoji: null</code> also removes it outright). No ownership restriction — react to
+any message, including your own. <span class="status-err">404 Not Found</span> if the message
+doesn't exist. <span class="status-err">400 Bad Request</span> if <code>message_id</code> isn't a
+number, <code>emoji</code> is present but not a short non-empty string (max 32 characters), or
+<code>request_id</code> is present but not a valid UUID.</p>
+
 <h3 id="chat-socket">WebSocket — live delivery</h3>
 
 <pre><code>wss://chat.iblandbandet.workers.dev/socket</code></pre>
@@ -463,7 +485,7 @@ tab. Every real client here is expected to be the mobile app itself.
 </div>
 
 <p><strong>Send a text message</strong> over the socket:</p>
-<pre><code>{"type": "message", "body": "hej 👋", "request_id": "3f8e9c2a-..."}</code></pre>
+<pre><code>{"type": "message", "body": "hej 👋", "reply_to_id": null, "request_id": "3f8e9c2a-..."}</code></pre>
 
 <p><strong>Delete a message</strong> over the socket:</p>
 <pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
@@ -471,8 +493,13 @@ tab. Every real client here is expected to be the mobile app itself.
 <p><strong>Edit a message</strong> over the socket:</p>
 <pre><code>{"type": "edit", "id": 123, "body": "hej igen 👋", "request_id": "5e6f7a8b-..."}</code></pre>
 
+<p><strong>React to a message</strong> over the socket:</p>
+<pre><code>{"type": "reaction", "id": 123, "emoji": "👍", "request_id": "6b7c8d9e-..."}</code></pre>
+<p><code>emoji: null</code> removes your reaction. Same one-per-member, same-emoji-toggles-off
+semantics as the <code>POST</code> action above.</p>
+
 <p><code>request_id</code> here is the same optional UUID documented under <code>POST</code> above
-— it works identically whichever path a client uses, since all three end up persisting through the
+— it works identically whichever path a client uses, since all four end up persisting through the
 same <code class="path">api/chat.cgi</code>.</p>
 
 <p>The server confirms by broadcasting to every connected client, sender included — same shape as a
@@ -487,7 +514,9 @@ row from <code>GET</code> above:</p>
   "created_at": "2026-10-01T18:03:00Z",
   "edited_at": null,
   "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
-  "name": "Klarinett-Anna"
+  "name": "Klarinett-Anna",
+  "reactions": [],
+  "reply_to": null
 }</code></pre>
 <pre><code>{"type": "delete", "id": 123, "request_id": "9a1b2c3d-..."}</code></pre>
 <pre><code>{
@@ -500,8 +529,13 @@ row from <code>GET</code> above:</p>
   "created_at": "2026-10-01T18:03:00Z",
   "edited_at": "2026-10-02T09:12:00Z",
   "profile_picture": "/api/avatar.cgi?file=5_initials.svg",
-  "name": "Klarinett-Anna"
+  "name": "Klarinett-Anna",
+  "reactions": [],
+  "reply_to": null
 }</code></pre>
+<p>A <code>reaction</code> broadcast carries this same full message shape too (not just a diff),
+with <code>type: "reaction"</code> and <code>reactions</code> reflecting the change — a plain keyed
+replace, the same way a client already handles <code>message</code>/<code>edit</code>.</p>
 
 <p>If a send/delete/edit fails (blank body, acting on someone else's message, etc.), only the
 requester gets an error — nothing is broadcast. Its own <code>request_id</code> (or whichever
@@ -511,7 +545,7 @@ request actually failed) comes back too, so it's clear which in-flight request t
 <div class="note">
 <strong>Images are still sent over the REST endpoint above, never the socket</strong> — the
 <code>multipart/form-data</code> upload described under <code>POST</code>. The socket only carries
-plain <code>message</code>/<code>delete</code>/<code>edit</code> JSON. An uploaded image still
+plain <code>message</code>/<code>delete</code>/<code>edit</code>/<code>reaction</code> JSON. An uploaded image still
 broadcasts live to everyone connected, exactly like a text message does; it just gets there via a
 different path server-side, not something a client needs to think about.
 </div>

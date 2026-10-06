@@ -885,3 +885,413 @@ footer {
 .calendar-event-details a:hover {
     color: var(--teal);
 }
+
+/* Chat */
+
+#chat-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding-top: 6rem;
+    box-sizing: border-box;
+}
+
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+/* One group per consecutive run of messages from the same sender - name/
+   time shown once at the top, avatar shown once, bottom-aligned (via
+   align-items: flex-end below) with the most recent message in the run,
+   same convention Messenger uses. */
+.chat-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    max-width: min(32rem, 80%);
+    min-width: 0;
+}
+
+.chat-group.own {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.chat-avatar {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chat-group-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.chat-group.own .chat-group-col {
+    align-items: flex-end;
+}
+
+.chat-message-meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.chat-message-name {
+    font-weight: 600;
+}
+
+.chat-bubble-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    /* .chat-group.own .chat-group-col below switches its own align-items
+       to flex-end (so own bubbles hug the right edge) - that stops the
+       column from stretching this row to its own width at all, so without
+       an explicit ceiling here, a bubble whose content is wide enough
+       (e.g. a long quoted line that can't wrap) would just render as wide
+       as that content needs, overflowing straight past the column. */
+    max-width: 100%;
+}
+
+/* Extra breathing room below a row whose bubble has reaction pills
+   floating off its lower edge (see .chat-reactions) - without this the
+   next row's own bubble would crowd right up against the pills. */
+.chat-bubble-row.has-reactions {
+    margin-bottom: 0.7rem;
+}
+
+.chat-bubble {
+    position: relative;
+    min-width: 0;
+    background: var(--tint);
+    color: var(--text);
+    border-radius: 1rem;
+    padding: 0.55rem 0.9rem;
+    overflow-wrap: break-word;
+}
+
+.chat-group.own .chat-bubble {
+    background: var(--teal);
+    color: var(--dark);
+}
+
+.chat-bubble-text {
+    white-space: pre-wrap;
+}
+
+.chat-bubble-image {
+    display: block;
+    max-width: 16rem;
+    max-height: 16rem;
+    border-radius: 0.6rem;
+    margin-bottom: 0.3rem;
+}
+
+.chat-bubble-edited {
+    display: block;
+    font-size: 0.72rem;
+    opacity: 0.65;
+    margin-top: 0.2rem;
+}
+
+.chat-edit-input {
+    width: 100%;
+    min-width: 12rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.4rem;
+    font: inherit;
+    color: inherit;
+}
+
+/* Row-level action icons (reply, react, and - own/admin only - the "..."
+   menu below) - always visible to every viewer on every row, never
+   hover-revealed (touch devices have no hover state at all). */
+.chat-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.chat-action-icon {
+    border: none;
+    background: none;
+    color: rgba(44, 44, 44, 0.55);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.chat-action-icon:hover {
+    color: var(--text);
+    background: var(--tint);
+}
+
+/* Same hand-rolled .dropdown-menu/.show toggle drive.js's own action menu
+   already uses, reusing Bootstrap's own dropdown CSS classes (already
+   loaded sitewide) rather than its JS bundle. Lives inside
+   .chat-row-actions now, alongside the reply/react icons above. */
+.chat-actions-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.chat-actions-toggle {
+    border: none;
+    background: none;
+    color: rgba(44, 44, 44, 0.55);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.chat-actions-toggle:hover {
+    color: var(--text);
+    background: var(--tint);
+}
+
+#chat-image-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1.5rem;
+    border-top: 1px solid var(--tint);
+}
+
+#chat-image-preview-img {
+    height: 3.5rem;
+    width: 3.5rem;
+    object-fit: cover;
+    border-radius: 0.4rem;
+}
+
+#chat-image-preview-cancel {
+    border: none;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+}
+
+#chat-form {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid var(--tint);
+}
+
+#chat-text-input {
+    flex: 1;
+    border: 1px solid var(--tint);
+    border-radius: 1.5rem;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    min-width: 0;
+}
+
+.chat-icon-btn {
+    border: none;
+    background: none;
+    color: var(--purple-dark);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.chat-icon-btn:hover {
+    color: var(--teal);
+}
+
+.chat-emoji-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.chat-emoji-picker {
+    position: absolute;
+    bottom: 135%;
+    right: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.2rem;
+    background: var(--warm-white);
+    border: 1px solid var(--tint);
+    border-radius: 0.6rem;
+    padding: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    width: 12rem;
+}
+
+.chat-emoji-option {
+    border: none;
+    background: none;
+    font-size: 1.3rem;
+    padding: 0.2rem;
+    cursor: pointer;
+    border-radius: 0.3rem;
+}
+
+.chat-emoji-option:hover {
+    background: var(--tint);
+}
+
+/* Reaction picker popup, anchored to a message's react icon instead of
+   the composer - otherwise a CSS twin of .chat-emoji-wrap/.chat-emoji-
+   picker above (same grid, same EMOJIS, see chat.js's buildEmojiGrid()). */
+.chat-reaction-picker-wrap {
+    position: relative;
+}
+
+.chat-reaction-picker {
+    position: absolute;
+    bottom: 135%;
+    left: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.2rem;
+    background: var(--warm-white);
+    border: 1px solid var(--tint);
+    border-radius: 0.6rem;
+    padding: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    width: 12rem;
+}
+
+/* Floats off the bubble's own lower border rather than sitting inside its
+   padding, Messenger-style - anchored to .chat-bubble (position: relative
+   above), overlapping its bottom edge. Sits on the inward side (toward
+   the center of the chat) on both own and others' bubbles, same reasoning
+   as .chat-row-actions' own placement. */
+.chat-reactions {
+    position: absolute;
+    bottom: -0.5rem;
+    right: 0.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.chat-group.own .chat-reactions {
+    right: auto;
+    left: 0.4rem;
+}
+
+/* White/grey, not tinted to match the bubble - Messenger's own reaction
+   pills are plain white/grey floating badges regardless of whose bubble
+   they're on. */
+.chat-reaction-pill {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--warm-white);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    border-radius: 1rem;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    cursor: pointer;
+    color: var(--text);
+}
+
+.chat-reaction-pill.mine {
+    border-color: var(--purple-dark);
+}
+
+/* Quoted preview of the message being replied to - a snapshot captured
+   once at send time (see api/chat.cgi's build_reply_fields()), not a live
+   lookup, so it keeps rendering correctly after the original is edited or
+   deleted. Rendered as its own grey card (.chat-bubble-stack below), not
+   inset inside the reply's own bubble, with the reply bubble overlapping
+   its lower portion - same stacked-card look Messenger uses. */
+.chat-bubble-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.chat-reply-preview {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    background: var(--tint);
+    border-radius: 1rem;
+    /* Extra bottom padding - the real bubble overlaps this area (see
+       margin-bottom below), so this is the room the quote's own text
+       actually has to breathe in before being covered. */
+    padding: 0.45rem 0.9rem 1.3rem;
+    /* Overlap depth matches the border-radius above, so the bubble on
+       top fully hides the quote's rounded bottom corners rather than
+       leaving a sliver of them peeking out. */
+    margin-bottom: -1rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.chat-bubble-stack .chat-bubble {
+    position: relative;
+    z-index: 2;
+}
+
+.chat-reply-preview-name {
+    font-weight: 600;
+}
+
+.chat-reply-preview-body {
+    min-width: 0;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Brief flash when a reply's quoted preview is clicked and the original
+   message is scrolled into view - toggled off again via setTimeout in
+   chat.js. */
+.chat-row-highlight {
+    animation: chat-row-highlight-flash 1.5s ease-out;
+}
+
+@keyframes chat-row-highlight-flash {
+    from { background: var(--tint); }
+    to { background: transparent; }
+}
+
+#chat-reply-preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.5rem 1.5rem;
+    border-top: 1px solid var(--tint);
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+#chat-reply-preview-cancel {
+    border: none;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+}
