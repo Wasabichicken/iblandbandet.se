@@ -9,8 +9,14 @@ ALLOWED_EXTENSIONS = {
 
 # .mscz is a MuseScore project file (a zip archive) - no browser can render
 # it inline, so it gets a real download instead of the browser trying (and
-# failing) to display it the way it does for the other types.
-DOWNLOAD_EXTENSIONS = {'.mscz'}
+# failing) to display it the way it does for the other types. .mp3 is
+# forced to download too, by request - members wanted direct file access
+# the same way they already get it for .mscz, not just playback through
+# the <audio> tag. Content-Disposition only governs direct
+# navigation/link-click behavior, not a resource fetched by a media
+# element, so this doesn't affect the existing <audio controls> player
+# (confirmed locally - same URL, same response, the player keeps working).
+DOWNLOAD_EXTENSIONS = {'.mscz', '.mp3'}
 
 
 def fs_display_name(name):

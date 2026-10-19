@@ -44,7 +44,7 @@
 % elif entry['ext'] == '.pdf':
                         <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-pdf scores-icon scores-icon-pdf"></i> ${entry['display_name']}</a>
 % elif entry['ext'] == '.mp3':
-                        <i class="bi bi-file-earmark-music scores-icon scores-icon-audio"></i> ${entry['display_name']}
+                        <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-music scores-icon scores-icon-audio"></i> ${entry['display_name']}</a>
                         <audio controls src="${base_path}/members/scores.cgi?path=${href}"></audio>
 % elif entry['ext'] == '.txt':
                         <a href="${base_path}/members/scores.cgi?path=${href}"><i class="bi bi-file-earmark-text scores-icon scores-icon-text"></i> ${entry['display_name']}</a>

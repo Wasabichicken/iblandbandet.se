@@ -131,7 +131,7 @@ function rewriteHtml(response, requestUrl) {
     return new HTMLRewriter()
         .on('a[href], link[href]', new AttributeRewriter('href', requestUrl))
         .on('form[action]', new AttributeRewriter('action', requestUrl))
-        .on('img[src], script[src], source[src], video[src]', new AttributeRewriter('src', requestUrl))
+        .on('audio[src], img[src], script[src], source[src], video[src]', new AttributeRewriter('src', requestUrl))
         .on('.calendar-subscribe-url code', new AbsoluteUrlTextRewriter(requestUrl))
         .on('script#app-base-path', new BasePathScriptRewriter())
         .transform(response);
