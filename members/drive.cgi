@@ -369,6 +369,10 @@ def main():
         redirect_to_home()
         return
 
+    if not (member.drive_access or member.is_admin):
+        error_page(member, '403 Forbidden', 'Du har inte behörighet till filarkivet.')
+        return
+
     if not os.environ.get('DRIVE_ROOT'):
         error_page(member, '500 Internal Server Error', 'Filarkivet är inte konfigurerat.')
         return

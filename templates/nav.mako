@@ -41,12 +41,19 @@
             <p>Inloggad som ${member.email}</p>
             <ul>
                 <li><a href="${base_path}/members/profile.cgi" class="sidebar-link">Min profil</a></li>
+% if member.chat_access or member.is_admin:
                 <li><a href="${base_path}/members/chat.cgi" class="sidebar-link">Chatt</a></li>
+% endif
+% if member.scores_access or member.is_admin:
                 <li><a href="${base_path}/members/scores.cgi" class="sidebar-link">Noter</a></li>
+% endif
+% if member.drive_access or member.is_admin:
                 <li><a href="${base_path}/members/drive.cgi" class="sidebar-link">Filer</a></li>
+% endif
 % if member.is_admin:
                 <li><a href="${base_path}/members/admin.cgi" class="sidebar-link">Admin</a></li>
 % endif
+                <li><a href="${base_path}/app/" class="sidebar-link">App <span class="app-platform-icons"><i class="bi bi-apple"></i><i class="bi bi-android2"></i></span></a></li>
                 <li><a href="${base_path}/members/logout.cgi" class="sidebar-link">Logga ut</a></li>
             </ul>
         </div>

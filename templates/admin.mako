@@ -1,6 +1,14 @@
 <%inherit file="base.mako"/>
 <%
     wide = not (edit_member or confirm_delete_member or edit_subtitle or confirm_delete_subtitle)
+
+    def flag_icon(value):
+        # Bootstrap's own text-success/text-danger + bi-check-circle-fill/
+        # bi-x-circle-fill - no new colors or icon set introduced, just the
+        # same Bootstrap Icons already used everywhere else on the site.
+        if value:
+            return '<i class="bi bi-check-circle-fill text-success" aria-label="Ja"></i>'
+        return '<i class="bi bi-x-circle-fill text-danger" aria-label="Nej"></i>'
 %>
     <div class="page-container${' page-container-admin' if wide else ''}">
         <h1>Adminpanel</h1>
@@ -38,6 +46,18 @@
             <div class="mb-3 form-check">
                 <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" ${'checked' if edit_values['is_admin'] else ''}>
                 <label class="form-check-label" for="is_admin">Admin</label>
+            </div>
+            <div class="mb-3 form-check">
+                <input class="form-check-input" type="checkbox" id="drive_access" name="drive_access" ${'checked' if edit_values['drive_access'] else ''}>
+                <label class="form-check-label" for="drive_access">Filer</label>
+            </div>
+            <div class="mb-3 form-check">
+                <input class="form-check-input" type="checkbox" id="chat_access" name="chat_access" ${'checked' if edit_values['chat_access'] else ''}>
+                <label class="form-check-label" for="chat_access">Chatt</label>
+            </div>
+            <div class="mb-3 form-check">
+                <input class="form-check-input" type="checkbox" id="scores_access" name="scores_access" ${'checked' if edit_values['scores_access'] else ''}>
+                <label class="form-check-label" for="scores_access">Noter</label>
             </div>
             <button class="btn btn-primary" type="submit">Spara</button>
             <a class="btn btn-secondary" href="${base_path}/members/admin.cgi">Avbryt</a>
@@ -90,6 +110,9 @@
                         <th>Instrument</th>
                         <th>Aktiv</th>
                         <th>Admin</th>
+                        <th>Filer</th>
+                        <th>Chatt</th>
+                        <th>Noter</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -100,8 +123,11 @@
                         <td>${row.email}</td>
                         <td>${row.name or '–'}</td>
                         <td>${row.instruments or '–'}</td>
-                        <td>${'Ja' if row.is_active else 'Nej'}</td>
-                        <td>${'Ja' if row.is_admin else 'Nej'}</td>
+                        <td>${flag_icon(row.is_active) | n}</td>
+                        <td>${flag_icon(row.is_admin) | n}</td>
+                        <td>${flag_icon(row.drive_access) | n}</td>
+                        <td>${flag_icon(row.chat_access) | n}</td>
+                        <td>${flag_icon(row.scores_access) | n}</td>
                         <td class="text-end">
                             <a class="btn btn-sm btn-outline-primary" href="${base_path}/members/admin.cgi?edit=${row.id}">Redigera</a>
 % if row.id != member.id:

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
 import os
+import smtplib
 import sys
 from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from avatars import generate_and_save_initials_avatar
-from dal.members import DuplicateEmailError, register_member, update_profile_picture
+from base_path import absolute_url
+from dal.members import DuplicateEmailError, list_admin_emails, register_member, update_profile_picture
 from layout import render
+from mailer import send_email
 from session_auth import current_member
 
 FIELDS = ('email', 'password', 'instruments', 'name')
@@ -16,6 +19,44 @@ REQUIRED_FIELD_LABELS = (
     ('email', 'E-post'),
     ('password', 'Lösenord'),
 )
+
+NEW_MEMBER_EMAIL_SUBJECT = 'Ny medlem registrerad — (i)Blandbandet'
+
+NEW_MEMBER_EMAIL_BODY = """Hej,
+
+En ny medlem har registrerat sig på (i)Blandbandet:
+
+{details}
+
+Den nya medlemmen har ännu ingen åtkomst till chatt, filarkiv eller
+notarkiv - det ger du i adminpanelen:
+{admin_link}
+
+/(i)Blandbandet
+"""
+
+
+def build_new_member_details(email, instruments, name):
+    lines = ['E-post: {}'.format(email)]
+    if instruments:
+        lines.append('Instrument: {}'.format(instruments))
+    if name:
+        lines.append('Artistnamn: {}'.format(name))
+    return '\n'.join(lines)
+
+
+def notify_admins_of_new_member(member_id, email, instruments, name):
+    details = build_new_member_details(email, instruments, name)
+    admin_link = absolute_url('/members/admin.cgi?edit={}'.format(member_id))
+    body = NEW_MEMBER_EMAIL_BODY.format(details=details, admin_link=admin_link)
+    for admin_email in list_admin_emails():
+        try:
+            send_email(admin_email, NEW_MEMBER_EMAIL_SUBJECT, body)
+        except (smtplib.SMTPException, OSError):
+            # Registration itself must not fail, and no admin's mailbox/SMTP
+            # hiccup should stop the rest from being notified - same
+            # must-not-block precedent as the avatar generation below.
+            pass
 
 
 def missing_required_fields(values):
@@ -82,6 +123,8 @@ def main():
             values=values,
         )
         return
+
+    notify_admins_of_new_member(member_id, values['email'], values['instruments'], values['name'])
 
     # If DiceBear can't be reached, the member just keeps the generic
     # _default.svg fallback - registration itself must not fail because of it.

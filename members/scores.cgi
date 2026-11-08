@@ -120,6 +120,10 @@ def main():
         redirect_to_home()
         return
 
+    if not (member.scores_access or member.is_admin):
+        error_page(member, '403 Forbidden', 'Du har inte behörighet till notarkivet.')
+        return
+
     scores_root = os.environ.get('SCORES_ROOT')
     if not scores_root:
         error_page(member, '500 Internal Server Error', 'Notarkivet är inte konfigurerat.')

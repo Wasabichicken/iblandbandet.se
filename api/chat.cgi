@@ -501,6 +501,10 @@ def main():
         json_response('401 Unauthorized', {'error': 'Ogiltig eller saknad token.'})
         return
 
+    if not (member.chat_access or member.is_admin):
+        json_response('403 Forbidden', {'error': 'Du har inte behörighet till chatten.'})
+        return
+
     method = os.environ.get('REQUEST_METHOD', 'GET')
 
     if method == 'GET':

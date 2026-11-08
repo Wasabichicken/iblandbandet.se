@@ -209,6 +209,17 @@ body {
     color: var(--teal);
 }
 
+.app-platform-icons {
+    font-size: 0.6em;
+    margin-left: 0.4rem;
+    opacity: 0.75;
+    vertical-align: middle;
+}
+
+.app-platform-icons .bi + .bi {
+    margin-left: 0.3rem;
+}
+
 #sidebar-close {
     background: none;
     border: none;

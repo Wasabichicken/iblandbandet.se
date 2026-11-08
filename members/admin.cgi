@@ -53,6 +53,9 @@ def read_form():
                'description', 'name', 'subtitle_id', 'subtitle')}
     values['is_active'] = 'is_active' in parsed
     values['is_admin'] = 'is_admin' in parsed
+    values['drive_access'] = 'drive_access' in parsed
+    values['chat_access'] = 'chat_access' in parsed
+    values['scores_access'] = 'scores_access' in parsed
     return values
 
 
@@ -91,6 +94,9 @@ def handle_update_member(values):
             is_active=values['is_active'],
             is_admin=values['is_admin'],
             name=values['name'] or None,
+            drive_access=values['drive_access'],
+            chat_access=values['chat_access'],
+            scores_access=values['scores_access'],
         )
     except DuplicateEmailError:
         return 'Det finns redan en medlem med den e-postadressen.', 'error'
@@ -172,6 +178,9 @@ def main():
                     'is_active': values['is_active'],
                     'is_admin': values['is_admin'],
                     'name': values['name'],
+                    'drive_access': values['drive_access'],
+                    'chat_access': values['chat_access'],
+                    'scores_access': values['scores_access'],
                 }
                 render_page(member, csrf_token, message=message, message_kind=kind,
                             edit_member=target, edit_values=edit_values)
@@ -237,6 +246,9 @@ def main():
             'is_active': target.is_active,
             'is_admin': target.is_admin,
             'name': target.name or '',
+            'drive_access': target.drive_access,
+            'chat_access': target.chat_access,
+            'scores_access': target.scores_access,
         }
         render_page(member, csrf_token, edit_member=target, edit_values=edit_values)
         return

@@ -58,6 +58,14 @@ export default {
             return rewriteHtml(response, url);
         }
 
+        if (url.pathname === '/app/sw.js') {
+            // Cloudflare's default Browser Cache TTL overrides origin's
+            // intentional "no-cache" for .js extensions, which would let a
+            // stale service worker linger for hours after a release - force
+            // it back so the app's "Ny version" banner shows up on next load.
+            response.headers.set('Cache-Control', 'no-cache');
+        }
+
         return response;
     },
 };

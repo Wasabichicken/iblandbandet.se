@@ -333,14 +333,21 @@ downloading a file. Folders have <code>ext</code>/<code>size</code> as <code>nul
 <p><strong>Download a file</strong> — same endpoint, <code>path</code> pointing at a file instead of
 a folder. The response isn't JSON in this case: it's the raw file bytes, with a real
 <code>Content-Type</code> and <code>Content-Disposition</code> (<code>attachment</code> for
-<code>.mscz</code>, since nothing can render it inline; <code>inline</code> otherwise).</p>
+<code>.mscz</code> and <code>.mp3</code>, since neither should just open inline; <code>inline</code>
+otherwise).</p>
 
-<p><span class="status-err">404 Not Found</span> for a path that doesn't exist. <span class="status-err">401 Unauthorized</span> for a missing/invalid token.</p>
+<p><span class="status-err">404 Not Found</span> for a path that doesn't exist.
+<span class="status-err">401 Unauthorized</span> for a missing/invalid token.
+<span class="status-err">403 Forbidden</span> if the member doesn't have score-archive access
+(<code>{"error": "Du har inte behörighet till notarkivet."}</code>).</p>
 
 <h2 id="chat-get"><span class="method">GET</span><span class="path">/api/chat.cgi</span></h2>
 
 <p>Requires a valid <code>Authorization: Bearer</code> header for every request — like scores, nothing
-here is public. A single shared chatroom, no channels: every member sees the same message history.</p>
+here is public. A single shared chatroom, no channels: every member sees the same message history.
+<span class="status-err">403 Forbidden</span> if the member doesn't have chat access
+(<code>{"error": "Du har inte behörighet till chatten."}</code>) - checked once, covering every
+action on this endpoint (list, image serving, send, delete, edit, react, image upload alike).</p>
 
 <div class="note">
 <strong>Two ways to send/delete text, both live-broadcast the same way — pick whichever fits.</strong>

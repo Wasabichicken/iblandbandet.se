@@ -23,6 +23,10 @@ def main():
         redirect_to_home()
         return
 
+    if not (member.chat_access or member.is_admin):
+        redirect_to_home()
+        return
+
     # A fresh API token minted for this page load - the website's session
     # cookie and the API's bearer tokens are deliberately separate
     # mechanisms (see CHAT.md), so the page's own JS needs a real token of

@@ -19,6 +19,16 @@ CREATE TABLE iblandbandet_members (
     name TEXT
 );
 
+-- Per-feature access flags, admin-granted via members/admin.cgi. New
+-- members default to none (DEFAULT FALSE) - granted individually, not
+-- implied by just being a member. is_admin bypasses all three checks
+-- everywhere these are read, same "or member.is_admin" shape already
+-- used for chat's own edit/delete ownership checks.
+ALTER TABLE iblandbandet_members
+    ADD COLUMN drive_access BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN chat_access BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN scores_access BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE iblandbandet_sessions (
     token_hash TEXT PRIMARY KEY,
     member_id INTEGER NOT NULL REFERENCES iblandbandet_members(id) ON DELETE CASCADE,

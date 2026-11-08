@@ -58,7 +58,8 @@ def get_member_by_email(email):
         cursor.execute(
             """
             SELECT id, email, password_hash, password_salt, password_iterations,
-                   instruments, description, is_active, profile_picture, is_admin, name
+                   instruments, description, is_active, profile_picture, is_admin, name,
+                   drive_access, chat_access, scores_access
             FROM iblandbandet_members
             WHERE email = ?
             """,
@@ -76,7 +77,8 @@ def get_member_by_id(member_id):
         cursor.execute(
             """
             SELECT id, email, password_hash, password_salt, password_iterations,
-                   instruments, description, is_active, profile_picture, is_admin, name
+                   instruments, description, is_active, profile_picture, is_admin, name,
+                   drive_access, chat_access, scores_access
             FROM iblandbandet_members
             WHERE id = ?
             """,
@@ -93,9 +95,10 @@ def list_all_members():
         cursor = connection.cursor()
         cursor.execute(
             """
-            SELECT id, email, instruments, is_active, is_admin, profile_picture, name
+            SELECT id, email, instruments, is_active, is_admin, profile_picture, name,
+                   drive_access, chat_access, scores_access
             FROM iblandbandet_members
-            ORDER BY email
+            ORDER BY is_admin DESC, email
             """
         )
         return cursor.fetchall()
@@ -134,7 +137,8 @@ def update_profile_picture(member_id, url):
         connection.close()
 
 
-def admin_update_member(member_id, email, instruments, description, is_active, is_admin, name):
+def admin_update_member(member_id, email, instruments, description, is_active, is_admin, name,
+                         drive_access, chat_access, scores_access):
     connection = get_connection()
     try:
         cursor = connection.cursor()
@@ -143,13 +147,25 @@ def admin_update_member(member_id, email, instruments, description, is_active, i
                 """
                 UPDATE iblandbandet_members
                 SET email = ?, instruments = ?, description = ?,
-                    is_active = ?, is_admin = ?, name = ?
+                    is_active = ?, is_admin = ?, name = ?,
+                    drive_access = ?, chat_access = ?, scores_access = ?
                 WHERE id = ?
                 """,
-                email, instruments, description, is_active, is_admin, name, member_id,
+                email, instruments, description, is_active, is_admin, name,
+                drive_access, chat_access, scores_access, member_id,
             )
         except pyodbc.IntegrityError:
             raise DuplicateEmailError(email)
+    finally:
+        connection.close()
+
+
+def list_admin_emails():
+    connection = get_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT email FROM iblandbandet_members WHERE is_admin")
+        return [row.email for row in cursor.fetchall()]
     finally:
         connection.close()
 
